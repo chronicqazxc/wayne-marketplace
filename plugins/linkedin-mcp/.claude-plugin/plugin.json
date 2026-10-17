@@ -1,0 +1,6 @@
+{
+  "name": "linkedin-mcp",
+  "version": "0.3.0",
+  "description": "Self-hosted LinkedIn MCP server built on the official LinkedIn API (OAuth): profile, create and delete posts",
+  "author": { "name": "Wayne" }
+}
