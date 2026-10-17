@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Wayne's custom Claude Code plugin marketplace",
-    "version": "0.4.0"
+    "version": "0.6.0"
   },
   "plugins": [
     {
@@ -13,6 +13,12 @@
       "source": "./plugins/linkedin-mcp",
       "description": "Self-hosted LinkedIn MCP server built on the official LinkedIn API (OAuth): profile, create and delete posts",
       "version": "0.3.0"
+    },
+    {
+      "name": "wordpress-mcp",
+      "source": "./plugins/wordpress-mcp",
+      "description": "Self-hosted WordPress.com MCP server (REST API, OAuth bearer token): create, update, get, list and delete posts",
+      "version": "0.2.0"
     }
   ]
 }
