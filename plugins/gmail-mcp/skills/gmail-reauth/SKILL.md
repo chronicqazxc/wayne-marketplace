@@ -10,7 +10,7 @@ While the Google OAuth consent screen is in **Testing** mode, the refresh token 
 1. Confirm the failure is an auth error ("Not authenticated" or "Token expired") from a `gmail` tool. Other errors are not fixed by reauth.
 2. Tell the user to run this themselves (the `!` prefix runs it in the session):
    ```shell
-   ! cd "${CLAUDE_PLUGIN_ROOT}" && uv run server.py auth
+   ! node "${CLAUDE_PLUGIN_ROOT}/dist/auth.js"
    ```
    A browser window opens and listens on a localhost callback. The output ends with `Token saved to ~/.config/gmail-mcp/token.json`.
 3. After they confirm, retry the original tool call. The server reads the token file on every call, so no restart is needed.
