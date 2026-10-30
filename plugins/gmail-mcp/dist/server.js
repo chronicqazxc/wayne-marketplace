@@ -36688,6 +36688,13 @@ function truncate(s, max) {
   if (s.length <= max) return s;
   return Array.from(s.slice(0, max * 2)).slice(0, max).join("");
 }
+var INVISIBLE = /[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\u2800\u3164\ufe0f\ufeff\uffa0]/g;
+var SNIPPET_MAX_CHARS = 120;
+function cleanSnippet(snippet) {
+  const text = unescapeHtml(snippet).replace(INVISIBLE, "").replace(/\s+/g, " ").trim();
+  const chars = Array.from(text);
+  return chars.length > SNIPPET_MAX_CHARS ? chars.slice(0, SNIPPET_MAX_CHARS).join("").trimEnd() + "\u2026" : text;
+}
 var decode3 = (data) => Buffer.from(data, "base64url").toString("utf8");
 function extractBody(payload) {
   const plain = [];
@@ -36839,7 +36846,7 @@ async function searchThreads(query, maxResults2) {
     q: query,
     maxResults: Math.min(maxResults2, MAX_RESULTS_CAP)
   });
-  return (res.threads ?? []).map((t) => ({ id: t.id, snippet: t.snippet ?? "" }));
+  return (res.threads ?? []).map((t) => ({ id: t.id, snippet: cleanSnippet(t.snippet ?? "") }));
 }
 async function getThread(threadId) {
   const t = await call(`/threads/${enc(threadId)}`, { format: "full" });
@@ -36851,6 +36858,12 @@ async function getMessage(messageId) {
 async function listLabels() {
   const res = await call("/labels");
   return (res.labels ?? []).map((l) => ({ id: l.id, name: l.name, type: l.type }));
+}
+async function getUnreadCount(labelId) {
+  const l = await call(
+    `/labels/${enc(labelId)}`
+  );
+  return { label: l.name, threads_unread: l.threadsUnread ?? 0, messages_unread: l.messagesUnread ?? 0 };
 }
 async function listDrafts(maxResults2) {
   const res = await call("/drafts", {
@@ -36870,7 +36883,7 @@ async function createDraft(input2) {
 }
 
 // src/server.ts
-var server = new McpServer({ name: "gmail", version: "0.2.0" });
+var server = new McpServer({ name: "gmail", version: "0.3.0" });
 var json2 = (v) => ({ content: [{ type: "text", text: JSON.stringify(v, null, 2) }] });
 var fail = (e) => ({
   isError: true,
@@ -36916,6 +36929,15 @@ server.registerTool(
   "list_labels",
   { description: "List all labels (id, name, type).", annotations: READ_ONLY },
   () => run(listLabels)
+);
+server.registerTool(
+  "get_unread_count",
+  {
+    description: "Exact number of unread threads and messages for a label (default INBOX). Use this instead of search_threads to count: search results are capped at 50.",
+    inputSchema: { label_id: external_exports.string().default("INBOX").describe("Label id from list_labels, e.g. INBOX, STARRED") },
+    annotations: READ_ONLY
+  },
+  ({ label_id }) => run(() => getUnreadCount(label_id))
 );
 server.registerTool(
   "list_drafts",

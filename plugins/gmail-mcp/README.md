@@ -6,7 +6,8 @@ Self-hosted, self-written Gmail MCP server (TypeScript on Node, stdio, no runtim
 
 | Tool | Description |
 |---|---|
-| `search_threads` | Search threads with Gmail syntax (`from:bob is:unread newer_than:7d`) |
+| `search_threads` | Search threads with Gmail syntax (`from:bob is:unread newer_than:7d`). Max 50 results; snippets are cleaned and capped at 120 characters |
+| `get_unread_count` | Exact unread thread/message counts for a label (default INBOX) |
 | `get_thread` | Read every message in a thread |
 | `get_message` | Read a single message |
 | `list_labels` | List labels |

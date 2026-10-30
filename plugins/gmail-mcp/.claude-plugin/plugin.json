@@ -1,6 +1,6 @@
 {
   "name": "gmail-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Self-hosted Gmail MCP server (Node, OAuth): search and read threads, list labels and drafts, create drafts. No send or delete",
   "author": { "name": "Wayne" }
 }

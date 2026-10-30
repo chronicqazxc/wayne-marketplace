@@ -23,7 +23,7 @@ const NAMED_ENTITIES: Record<string, string> = {
   middot: "·", euro: "€",
 };
 
-function unescapeHtml(s: string): string {
+export function unescapeHtml(s: string): string {
   return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (whole, ref: string) => {
     if (ref[0] !== "#") return NAMED_ENTITIES[ref.toLowerCase()] ?? whole;
     const cp = ref[1].toLowerCase() === "x" ? parseInt(ref.slice(2), 16) : parseInt(ref.slice(1), 10);
@@ -35,6 +35,17 @@ function unescapeHtml(s: string): string {
 function truncate(s: string, max: number): string {
   if (s.length <= max) return s;
   return Array.from(s.slice(0, max * 2)).slice(0, max).join("");
+}
+
+// Zero-width and blank "padding" characters newsletters use to fill the inbox preview line.
+const INVISIBLE = /[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\u2800\u3164\ufe0f\ufeff\uffa0]/g;
+const SNIPPET_MAX_CHARS = 120;
+
+/** Gmail snippets are HTML-escaped and often padded with invisible characters: make them compact. */
+export function cleanSnippet(snippet: string): string {
+  const text = unescapeHtml(snippet).replace(INVISIBLE, "").replace(/\s+/g, " ").trim();
+  const chars = Array.from(text);
+  return chars.length > SNIPPET_MAX_CHARS ? chars.slice(0, SNIPPET_MAX_CHARS).join("").trimEnd() + "…" : text;
 }
 
 const decode = (data: string) => Buffer.from(data, "base64url").toString("utf8");

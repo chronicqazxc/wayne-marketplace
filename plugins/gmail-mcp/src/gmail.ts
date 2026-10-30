@@ -1,4 +1,4 @@
-import { buildRawMessage, formatMessage, type DraftInput, type Message } from "./format.js";
+import { buildRawMessage, cleanSnippet, formatMessage, type DraftInput, type Message } from "./format.js";
 import { getAccessToken } from "./token-store.js";
 
 const BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -22,7 +22,7 @@ export async function searchThreads(query: string, maxResults: number) {
     q: query,
     maxResults: Math.min(maxResults, MAX_RESULTS_CAP),
   });
-  return (res.threads ?? []).map((t) => ({ id: t.id, snippet: t.snippet ?? "" }));
+  return (res.threads ?? []).map((t) => ({ id: t.id, snippet: cleanSnippet(t.snippet ?? "") }));
 }
 
 export async function getThread(threadId: string) {
@@ -37,6 +37,14 @@ export async function getMessage(messageId: string) {
 export async function listLabels() {
   const res = await call<{ labels?: { id: string; name: string; type: string }[] }>("/labels");
   return (res.labels ?? []).map((l) => ({ id: l.id, name: l.name, type: l.type }));
+}
+
+/** Exact unread counts from the label's own counters (one call, regardless of mailbox size). */
+export async function getUnreadCount(labelId: string) {
+  const l = await call<{ id: string; name: string; threadsUnread?: number; messagesUnread?: number }>(
+    `/labels/${enc(labelId)}`,
+  );
+  return { label: l.name, threads_unread: l.threadsUnread ?? 0, messages_unread: l.messagesUnread ?? 0 };
 }
 
 export async function listDrafts(maxResults: number) {

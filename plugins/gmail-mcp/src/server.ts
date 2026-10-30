@@ -1,9 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { createDraft, getMessage, getThread, listDrafts, listLabels, searchThreads } from "./gmail.js";
+import { createDraft, getMessage, getThread, getUnreadCount, listDrafts, listLabels, searchThreads } from "./gmail.js";
 
-const server = new McpServer({ name: "gmail", version: "0.2.0" });
+const server = new McpServer({ name: "gmail", version: "0.3.0" });
 
 const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(v, null, 2) }] });
 const fail = (e: unknown) => ({
@@ -61,6 +61,18 @@ server.registerTool(
   "list_labels",
   { description: "List all labels (id, name, type).", annotations: READ_ONLY },
   () => run(listLabels),
+);
+
+server.registerTool(
+  "get_unread_count",
+  {
+    description:
+      "Exact number of unread threads and messages for a label (default INBOX). " +
+      "Use this instead of search_threads to count: search results are capped at 50.",
+    inputSchema: { label_id: z.string().default("INBOX").describe("Label id from list_labels, e.g. INBOX, STARRED") },
+    annotations: READ_ONLY,
+  },
+  ({ label_id }) => run(() => getUnreadCount(label_id)),
 );
 
 server.registerTool(
