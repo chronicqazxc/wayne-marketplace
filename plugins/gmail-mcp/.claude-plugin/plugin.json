@@ -1,0 +1,6 @@
+{
+  "name": "gmail-mcp",
+  "version": "0.1.0",
+  "description": "Self-hosted Gmail MCP server (Python, OAuth): search and read threads, list labels and drafts, create drafts. No send or delete",
+  "author": { "name": "Wayne" }
+}

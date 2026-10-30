@@ -1,0 +1,10 @@
+[project]
+name = "gmail-mcp"
+version = "0.1.0"
+description = "Local stdio MCP server for Gmail (read + draft only)"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.2,<2",
+    "google-api-python-client>=2.100",
+    "google-auth-oauthlib>=1.2",
+]
