@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { browseCountry, checkAvailability, listCountries, normalizeCountry, searchTitles } from "./tmdb.js";
 
-const server = new McpServer({ name: "netflix", version: "0.2.0" });
+const server = new McpServer({ name: "netflix", version: "0.3.0" });
 
 const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(v, null, 2) }] });
 const fail = (e: unknown) => ({
@@ -28,7 +28,8 @@ server.registerTool(
   {
     description:
       "Search movies and TV shows by name and show where each match streams on Netflix. " +
-      "Without `country`, each result lists every country carrying it. With `country`, only titles on Netflix there are returned. " +
+      "Without `country`, each result lists every country carrying it plus those whose ad plan carries it (netflix_ads_countries). " +
+      "With `country`, only titles on Netflix there are returned, with netflix_standard and netflix_ads flags. " +
       `Use the tmdb_id with check_availability for a full country list. ${UNTRUSTED}`,
     inputSchema: {
       query: z.string().min(1),
@@ -46,7 +47,7 @@ server.registerTool(
   "check_availability",
   {
     description:
-      "List every country where one title is on Netflix (with the standard or ads plan). Takes a tmdb_id from search_titles or browse_country. " +
+      "List every country where one title is on Netflix, with separate `standard` and `ads` flags (the ad-supported tier can carry a smaller catalog). Takes a tmdb_id from search_titles or browse_country. " +
       UNTRUSTED,
     inputSchema: { tmdb_id: z.number().int(), media_type: mediaType },
     annotations: READ_ONLY,
@@ -78,8 +79,14 @@ server.registerTool(
 
 server.registerTool(
   "list_countries",
-  { description: "List the countries where TMDB lists Netflix (code and name).", annotations: READ_ONLY },
-  () => run(listCountries),
+  {
+    description:
+      "List the countries where TMDB lists Netflix (code, name, and whether the cheaper ad-supported plan exists there). " +
+      "Prices are not available from TMDB.",
+    inputSchema: { ad_plan_only: z.boolean().default(false).describe("Only countries that have the ad-supported plan") },
+    annotations: READ_ONLY,
+  },
+  ({ ad_plan_only }) => run(() => listCountries(ad_plan_only)),
 );
 
 await server.connect(new StdioServerTransport());

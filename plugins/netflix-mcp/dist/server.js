@@ -36711,8 +36711,8 @@ async function netflixCountries(type, id) {
   const out = {};
   for (const [code, region] of Object.entries(data.results ?? {})) {
     const ids = new Set([...region.flatrate ?? [], ...region.ads ?? []].map((p) => p.provider_id));
-    if (ids.has(NETFLIX_STANDARD)) out[code] = "standard";
-    else if (ids.has(NETFLIX_ADS)) out[code] = "ads";
+    const tiers = { standard: ids.has(NETFLIX_STANDARD), ads: ids.has(NETFLIX_ADS) };
+    if (tiers.standard || tiers.ads) out[code] = tiers;
   }
   return out;
 }
@@ -36738,18 +36738,27 @@ async function searchTitles(query, type, country2, max) {
   const results = hits.map((h, i) => {
     const countries = availability[i];
     const base = summarize(h.t, h.type);
-    if (country2) return { ...base, netflix_plan: countries[country2] ?? null };
+    if (country2) {
+      const tiers = countries[country2];
+      return { ...base, netflix_standard: tiers?.standard ?? false, netflix_ads: tiers?.ads ?? false };
+    }
     const codes = Object.keys(countries).sort();
-    return { ...base, netflix_country_count: codes.length, netflix_countries: codes.join(",") };
+    const adCodes = codes.filter((c) => countries[c].ads);
+    return {
+      ...base,
+      netflix_country_count: codes.length,
+      netflix_countries: codes.join(","),
+      netflix_ads_countries: adCodes.join(",")
+    };
   });
-  return country2 ? results.filter((r) => "netflix_plan" in r && r.netflix_plan) : results;
+  return country2 ? results.filter((r) => "netflix_standard" in r && (r.netflix_standard || r.netflix_ads)) : results;
 }
 async function checkAvailability(type, id) {
   const [detail, countries] = await Promise.all([
     get(`/${type}/${id}`),
     netflixCountries(type, id)
   ]);
-  const list = Object.entries(countries).map(([code, plan]) => ({ code, country: countryName(code), plan })).sort((a, b) => a.country.localeCompare(b.country));
+  const list = Object.entries(countries).map(([code, tiers]) => ({ code, country: countryName(code), ...tiers })).sort((a, b) => a.country.localeCompare(b.country));
   return { ...summarize(detail, type), country_count: list.length, countries: list };
 }
 var genreCache = /* @__PURE__ */ new Map();
@@ -36788,18 +36797,18 @@ async function browseCountry(o) {
     results: data.results.map((t) => summarize(t, o.type))
   };
 }
-async function listCountries() {
+async function listCountries(adPlanOnly) {
   const data = await get(
     "/watch/providers/movie"
   );
-  const netflix = data.results.find((p) => p.provider_id === NETFLIX_STANDARD);
-  const codes = Object.keys(netflix?.display_priorities ?? {}).sort();
-  const list = codes.map((code) => ({ code, country: countryName(code) }));
+  const codesOf = (id) => Object.keys(data.results.find((p) => p.provider_id === id)?.display_priorities ?? {});
+  const adCodes = new Set(codesOf(NETFLIX_ADS));
+  const list = [.../* @__PURE__ */ new Set([...codesOf(NETFLIX_STANDARD), ...adCodes])].sort().map((code) => ({ code, country: countryName(code), ad_plan: adCodes.has(code) })).filter((c) => !adPlanOnly || c.ad_plan);
   return { count: list.length, countries: list };
 }
 
 // src/server.ts
-var server = new McpServer({ name: "netflix", version: "0.2.0" });
+var server = new McpServer({ name: "netflix", version: "0.3.0" });
 var json2 = (v) => ({ content: [{ type: "text", text: JSON.stringify(v, null, 2) }] });
 var fail = (e) => ({
   isError: true,
@@ -36819,7 +36828,7 @@ var mediaType = external_exports.enum(["movie", "tv"]);
 server.registerTool(
   "search_titles",
   {
-    description: `Search movies and TV shows by name and show where each match streams on Netflix. Without \`country\`, each result lists every country carrying it. With \`country\`, only titles on Netflix there are returned. Use the tmdb_id with check_availability for a full country list. ${UNTRUSTED}`,
+    description: `Search movies and TV shows by name and show where each match streams on Netflix. Without \`country\`, each result lists every country carrying it plus those whose ad plan carries it (netflix_ads_countries). With \`country\`, only titles on Netflix there are returned, with netflix_standard and netflix_ads flags. Use the tmdb_id with check_availability for a full country list. ${UNTRUSTED}`,
     inputSchema: {
       query: external_exports.string().min(1),
       type: external_exports.enum(["all", "movie", "tv"]).default("all"),
@@ -36833,7 +36842,7 @@ server.registerTool(
 server.registerTool(
   "check_availability",
   {
-    description: "List every country where one title is on Netflix (with the standard or ads plan). Takes a tmdb_id from search_titles or browse_country. " + UNTRUSTED,
+    description: "List every country where one title is on Netflix, with separate `standard` and `ads` flags (the ad-supported tier can carry a smaller catalog). Takes a tmdb_id from search_titles or browse_country. " + UNTRUSTED,
     inputSchema: { tmdb_id: external_exports.number().int(), media_type: mediaType },
     annotations: READ_ONLY
   },
@@ -36857,7 +36866,11 @@ server.registerTool(
 );
 server.registerTool(
   "list_countries",
-  { description: "List the countries where TMDB lists Netflix (code and name).", annotations: READ_ONLY },
-  () => run(listCountries)
+  {
+    description: "List the countries where TMDB lists Netflix (code, name, and whether the cheaper ad-supported plan exists there). Prices are not available from TMDB.",
+    inputSchema: { ad_plan_only: external_exports.boolean().default(false).describe("Only countries that have the ad-supported plan") },
+    annotations: READ_ONLY
+  },
+  ({ ad_plan_only }) => run(() => listCountries(ad_plan_only))
 );
 await server.connect(new StdioServerTransport());

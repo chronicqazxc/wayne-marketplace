@@ -8,7 +8,10 @@ const NETFLIX_ADS = 1796;
 const MAX_OVERVIEW_CHARS = 200;
 
 export type MediaType = "movie" | "tv";
-export type Plan = "standard" | "ads";
+export interface Tiers {
+  standard: boolean;
+  ads: boolean;
+}
 
 function credential(): string {
   const env = process.env.TMDB_API_KEY?.trim();
@@ -70,14 +73,14 @@ interface Region {
   ads?: Provider[];
 }
 
-/** Country code -> Netflix plan carrying the title, for every country that has it. */
-async function netflixCountries(type: MediaType, id: number): Promise<Record<string, Plan>> {
+/** Country code -> which Netflix tiers carry the title, for every country where at least one does. */
+async function netflixCountries(type: MediaType, id: number): Promise<Record<string, Tiers>> {
   const data = await get<{ results?: Record<string, Region> }>(`/${type}/${id}/watch/providers`);
-  const out: Record<string, Plan> = {};
+  const out: Record<string, Tiers> = {};
   for (const [code, region] of Object.entries(data.results ?? {})) {
     const ids = new Set([...(region.flatrate ?? []), ...(region.ads ?? [])].map((p) => p.provider_id));
-    if (ids.has(NETFLIX_STANDARD)) out[code] = "standard";
-    else if (ids.has(NETFLIX_ADS)) out[code] = "ads";
+    const tiers = { standard: ids.has(NETFLIX_STANDARD), ads: ids.has(NETFLIX_ADS) };
+    if (tiers.standard || tiers.ads) out[code] = tiers;
   }
   return out;
 }
@@ -119,11 +122,20 @@ export async function searchTitles(query: string, type: MediaType | "all", count
   const results = hits.map((h, i) => {
     const countries = availability[i]!;
     const base = summarize(h.t, h.type);
-    if (country) return { ...base, netflix_plan: countries[country] ?? null };
+    if (country) {
+      const tiers = countries[country];
+      return { ...base, netflix_standard: tiers?.standard ?? false, netflix_ads: tiers?.ads ?? false };
+    }
     const codes = Object.keys(countries).sort();
-    return { ...base, netflix_country_count: codes.length, netflix_countries: codes.join(",") };
+    const adCodes = codes.filter((c) => countries[c]!.ads);
+    return {
+      ...base,
+      netflix_country_count: codes.length,
+      netflix_countries: codes.join(","),
+      netflix_ads_countries: adCodes.join(","),
+    };
   });
-  return country ? results.filter((r) => "netflix_plan" in r && r.netflix_plan) : results;
+  return country ? results.filter((r) => "netflix_standard" in r && (r.netflix_standard || r.netflix_ads)) : results;
 }
 
 export async function checkAvailability(type: MediaType, id: number) {
@@ -132,7 +144,7 @@ export async function checkAvailability(type: MediaType, id: number) {
     netflixCountries(type, id),
   ]);
   const list = Object.entries(countries)
-    .map(([code, plan]) => ({ code, country: countryName(code), plan }))
+    .map(([code, tiers]) => ({ code, country: countryName(code), ...tiers }))
     .sort((a, b) => a.country.localeCompare(b.country));
   return { ...summarize(detail, type), country_count: list.length, countries: list };
 }
@@ -184,13 +196,16 @@ export async function browseCountry(o: BrowseOptions) {
   };
 }
 
-/** Countries where TMDB lists Netflix, from the provider's display_priorities map. */
-export async function listCountries() {
+/** Countries where TMDB lists Netflix, from each provider's display_priorities map; ad_plan marks those with the ad tier. */
+export async function listCountries(adPlanOnly: boolean) {
   const data = await get<{ results: { provider_id: number; display_priorities?: Record<string, number> }[] }>(
     "/watch/providers/movie",
   );
-  const netflix = data.results.find((p) => p.provider_id === NETFLIX_STANDARD);
-  const codes = Object.keys(netflix?.display_priorities ?? {}).sort();
-  const list = codes.map((code) => ({ code, country: countryName(code) }));
+  const codesOf = (id: number) => Object.keys(data.results.find((p) => p.provider_id === id)?.display_priorities ?? {});
+  const adCodes = new Set(codesOf(NETFLIX_ADS));
+  const list = [...new Set([...codesOf(NETFLIX_STANDARD), ...adCodes])]
+    .sort()
+    .map((code) => ({ code, country: countryName(code), ad_plan: adCodes.has(code) }))
+    .filter((c) => !adPlanOnly || c.ad_plan);
   return { count: list.length, countries: list };
 }
