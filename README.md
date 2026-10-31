@@ -7,7 +7,14 @@ A personal Claude Code plugin marketplace.
 ```
 .claude-plugin/marketplace.json   # marketplace manifest
 plugins/<name>/.claude-plugin/plugin.json
+scripts/marketplace-adapter/      # engine behind the adapter example below
 ```
+
+## Example: sharing this marketplace with other tools
+
+`marketplace-adapter` is a reference example, not an MCP server. It links a marketplace's plugin skills and MCP servers into OpenCode, Codex and VS Code. Run `/marketplace-adapter` in Claude Code, or `node scripts/marketplace-adapter/marketplace-adapter.mjs --ui` from this folder. See `plugins/marketplace-adapter/README.md`.
+
+It reads MCP servers from `mcpServers` in `plugin.json`. The plugins here declare theirs in `.mcp.json`, so the adapter currently links only their skills.
 
 ## Adding a plugin
 

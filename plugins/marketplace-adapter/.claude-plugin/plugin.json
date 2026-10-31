@@ -1,0 +1,9 @@
+{
+  "name": "marketplace-adapter",
+  "description": "Connect the marketplace plugins to coding agent tools (OpenCode, Codex and VS Code) — run /marketplace-adapter to choose tools, then install, update or uninstall plugin skills and MCP servers",
+  "version": "3.1.0",
+  "author": {
+    "name": "Wayne"
+  },
+  "license": "MIT"
+}

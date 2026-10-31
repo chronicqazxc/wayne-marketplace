@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Marketplace adapter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#fff;--fg:#1d2433;--mut:#6b7385;--line:#e3e6ee;--acc:#2f5bea;--ok:#1a8a4a;--warn:#c27a00;--bad:#c0392b;--card:#f6f7fb}
+@media(prefers-color-scheme:dark){:root{--bg:#14171f;--fg:#e6e9f2;--mut:#98a0b3;--line:#2a2f3d;--acc:#6b8cff;--ok:#4cc380;--warn:#e0a030;--bad:#ef6b5c;--card:#1c202b}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+#top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}.tb{padding:10px 20px 0;max-width:1100px;margin:auto}.tb .bar{margin-bottom:8px}#top header{border-bottom:0}header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+h1{font-size:16px;margin:0}main{padding:16px 20px;max-width:1100px;margin:auto}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+input[type=search]{padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);min-width:220px}
+button{padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);cursor:pointer}
+button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.d{color:var(--bad)}button:disabled{opacity:.4;cursor:default}
+table{width:100%;border-collapse:collapse}th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mut);font-weight:600;position:sticky;top:var(--top,0);background:var(--bg);z-index:2}
+td.s{white-space:nowrap}.b{display:inline-block;min-width:92px;padding:1px 8px;border-radius:10px;font-size:12px;border:1px solid var(--line)}
+.installed{color:var(--ok)}.partial{color:var(--warn)}.none{color:var(--mut)}.external{color:var(--acc)}
+.mut{color:var(--mut)}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}.card:empty{display:none}.card .n{font-weight:600}label.t{margin-right:8px}
+pre{background:var(--card);padding:10px;border-radius:6px;overflow:auto;max-height:260px;white-space:pre-wrap}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);max-width:720px;width:92%}
+#ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:9;cursor:progress}#ov.on{display:flex}#ov>div{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:22px 28px;text-align:center;max-width:380px}.sp{width:34px;height:34px;margin:0 auto 12px;border:4px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:r .8s linear infinite}@keyframes r{to{transform:rotate(360deg)}}#msg{color:var(--mut)}#err{color:var(--bad)}
+</style></head><body>
+<div id="top"><header><h1>Marketplace adapter</h1><span id="msg"></span><span id="err"></span><span style="flex:1"></span><button id="quit" class="d">Quit</button></header>
+<div class="tb"><div class="bar"><input id="q" type="search" placeholder="Filter plugins"><select id="f"><option value="">All states</option><option value="none">Not installed</option><option value="partial">Partly installed</option><option value="installed">Installed</option></select><button id="refresh">Refresh</button><button id="sa">Select all</button><button id="ua">Unselect all</button></div>
+<div class="bar"><span id="count" class="mut"></span><span style="flex:1"></span>
+<button id="bi" class="p" disabled>Install</button><button id="bu" disabled>Update</button><button id="bd" class="d" disabled>Uninstall</button></div></div></div>
+<main>
+<section id="req" class="card"></section>
+<table><thead><tr id="hr"></tr></thead><tbody id="rows"></tbody></table>
+<p class="mut">Installed = in the tool. Partly = some items only. Installed by user = the adapter does not change it. Skills are shared by all tools. MCP servers are separate for each tool. Restart a tool after a change.</p>
+</main>
+<div id="ov" role="alertdialog" aria-live="assertive"><div><div class="sp"></div><b id="ovt">Working…</b><p class="mut" id="ovs"></p></div></div>
+<dialog id="dlg"><h3 id="dt"></h3><pre id="dp"></pre><div class="bar"><button id="no">Cancel</button><button id="yes" class="p">Apply</button></div></dialog>
+<script>
+const token=new URLSearchParams(location.search).get('token');
+const $=(i)=>document.getElementById(i);
+let S={rows:[],tools:[],found:{},labels:{}},sel=new Set(),busy=false,pending=null,last='',first=true;
+const api=async(p,o)=>{const r=await fetch(p+(p.includes('?')?'&':'?')+'token='+token,o);const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);return j};
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+function badge(s){if(!s)return el('span','b none','—');
+ const [txt,cls]=s.state==='none'?['Not installed','none']:s.state==='partial'?['Partly','partial']:s.external?['Installed by user','external']:['Installed','installed'];return el('span','b '+cls,txt)}
+function items(r){return r.kind==='rule'?'global rule about ${CLAUDE_PLUGIN_ROOT}':[r.skills&&r.skills+' skill'+(r.skills>1?'s':''),r.mcp&&r.mcp+' MCP'].filter(Boolean).join(', ')}
+function overall(r){const st=S.tools.map(t=>r.state[t].state);return st.every(x=>x==='installed')?'installed':st.every(x=>x==='none')?'none':'partial'}
+const RULE='root-rule';
+const visible=()=>{const q=$('q').value.toLowerCase(),f=$('f').value;return S.rows.filter(r=>r.name!==RULE).filter(r=>(!q||r.name.toLowerCase().includes(q))&&(!f||overall(r)===f))};
+function drawReq(){const box=$('req');box.replaceChildren();const r=S.rows.find(x=>x.name===RULE);if(!r)return;
+ box.append(el('span','n','Required: root-rule'),el('span','mut','Installed together with your first change.'),...S.tools.flatMap(t=>[el('span','mut',S.labels[t]),badge(r.state[t])]))}
+function draw(){drawReq();
+ const hr=$('hr');hr.replaceChildren();const vis=visible();
+ const ha=el('th');const all=el('input');all.type='checkbox';all.title='Select all shown plugins';all.checked=vis.length>0&&vis.every(r=>sel.has(r.name));
+ all.onchange=()=>{vis.forEach(r=>all.checked?sel.add(r.name):sel.delete(r.name));draw()};ha.append(all);
+ hr.append(ha,el('th',null,'Plugin'),...S.tools.map(t=>el('th',null,S.labels[t])),el('th',null,'Items'));
+ const tb=$('rows');tb.replaceChildren();
+ for(const r of vis){const tr=el('tr');const a=el('td');const c=el('input');c.type='checkbox';c.checked=sel.has(r.name);  c.onchange=()=>{c.checked?sel.add(r.name):sel.delete(r.name);buttons()};a.append(c);tr.append(a,el('td',null,r.name));
+  S.tools.forEach(t=>{const td=el('td','s');td.append(badge(r.state[t]));tr.append(td)});
+  tr.append(el('td','mut',items(r)));tb.append(tr)}
+ $('count').textContent=vis.length+' of '+S.rows.filter(r=>r.name!==RULE).length+' plugins · '+sel.size+' selected';buttons()}
+// A plugin always changes in all tools together. Install: not fully installed somewhere. Update and uninstall: the adapter created something somewhere.
+const can=(r,a)=>a==='install'?S.tools.some(t=>r.state[t].state!=='installed'):S.tools.some(t=>r.state[t].ownedAny);
+const elig=(a)=>S.rows.filter(r=>sel.has(r.name)&&can(r,a)).map(r=>r.name);
+function setBusy(on,title,sub){busy=on;$('ov').classList.toggle('on',on);$('ovt').textContent=title||'';$('ovs').textContent=sub||'';$('quit').disabled=on;$('refresh').disabled=on;buttons()}
+addEventListener('beforeunload',e=>{if(busy){e.preventDefault();e.returnValue=''}});
+function buttons(){const v=visible();$('sa').disabled=busy||!v.length||v.every(r=>sel.has(r.name));$('ua').disabled=busy||!v.some(r=>sel.has(r.name));['install','update','uninstall'].forEach((a,i)=>{const b=$(['bi','bu','bd'][i]);b.disabled=busy||!elig(a).length;b.textContent=a[0].toUpperCase()+a.slice(1)+' ('+elig(a).length+')'})}
+async function load(quiet){if(busy)return;try{const j=await api('/api/state');
+ S=j;[...sel].forEach(n=>{if(!S.rows.some(r=>r.name===n))sel.delete(n)});
+ if(first){first=false;S.rows.filter(r=>r.name!==RULE&&can(r,'update')).forEach(r=>sel.add(r.name))} // pre-select the plugins that the adapter installed, on the first load only
+ $('err').textContent='';$('msg').textContent='Updated '+new Date().toLocaleTimeString();draw()}catch(e){$('err').textContent=e.message}}
+async function act(a){const names=elig(a);if(!names.length)return;const body={[a]:names};
+ try{setBusy(true,'Preparing preview…','Reading the current state.');const p=await api('/api/run',{method:'POST',body:JSON.stringify({...body,dryRun:true})});
+  setBusy(false);pending={body,a};$('dt').textContent=a[0].toUpperCase()+a.slice(1)+' '+names.length+' plugin(s) in all tools? '+p.changed+' change(s).';
+  $('dp').textContent=p.plan.join('\n')||'No change.';$('yes').disabled=!p.changed;$('dlg').showModal()}catch(e){setBusy(false);$('err').textContent=e.message}}
+$('yes').onclick=async()=>{$('dlg').close();$('yes').disabled=true;setBusy(true,'Applying changes…','Do not close this page. This can take a minute.');$('msg').textContent='Working…';
+ try{const r=await api('/api/run',{method:'POST',body:JSON.stringify({...pending.body,dryRun:false})});
+  $('msg').textContent=r.changed+' change(s) applied. Restart the tool.';sel.clear()}catch(e){$('err').textContent=e.message}
+ setBusy(false);await load()};
+$('no').onclick=()=>$('dlg').close();
+$('bi').onclick=()=>act('install');$('bu').onclick=()=>act('update');$('bd').onclick=()=>act('uninstall');
+$('sa').onclick=()=>{visible().forEach(r=>sel.add(r.name));draw()};$('ua').onclick=()=>{visible().forEach(r=>sel.delete(r.name));draw()};
+new ResizeObserver(()=>document.documentElement.style.setProperty('--top',$('top').offsetHeight+'px')).observe($('top'));
+$('q').oninput=draw;$('f').onchange=draw;$('refresh').onclick=()=>load();
+let quitting=false;
+$('quit').onclick=async()=>{quitting=true;try{await api('/api/quit',{method:'POST'})}catch{}document.body.replaceChildren(el('p',null,'Stopped. You can close this tab.'))};
+addEventListener('pagehide',()=>{if(!quitting)navigator.sendBeacon('/api/bye?token='+token)});
+setInterval(()=>{if(!document.hidden&&!$('dlg').open)load(true)},8000);
+load();
+</script></body></html>
