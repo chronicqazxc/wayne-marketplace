@@ -167,6 +167,7 @@ export interface BrowseOptions {
   country: string;
   type: MediaType;
   genre: string;
+  originCountry: string;
   year: number | undefined;
   sortBy: string;
   page: number;
@@ -180,6 +181,7 @@ export async function browseCountry(o: BrowseOptions) {
       with_watch_providers: `${NETFLIX_STANDARD}|${NETFLIX_ADS}`,
       with_watch_monetization_types: "flatrate|ads",
       with_genres: o.genre ? await genreId(o.type, o.genre) : undefined,
+      with_origin_country: o.originCountry || undefined,
       [o.type === "movie" ? "primary_release_year" : "first_air_date_year"]: o.year,
       sort_by: o.sortBy,
       page: o.page,

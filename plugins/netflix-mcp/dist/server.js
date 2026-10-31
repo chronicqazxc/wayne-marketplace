@@ -36781,6 +36781,7 @@ async function browseCountry(o) {
       with_watch_providers: `${NETFLIX_STANDARD}|${NETFLIX_ADS}`,
       with_watch_monetization_types: "flatrate|ads",
       with_genres: o.genre ? await genreId(o.type, o.genre) : void 0,
+      with_origin_country: o.originCountry || void 0,
       [o.type === "movie" ? "primary_release_year" : "first_air_date_year"]: o.year,
       sort_by: o.sortBy,
       page: o.page,
@@ -36808,7 +36809,7 @@ async function listCountries(adPlanOnly) {
 }
 
 // src/server.ts
-var server = new McpServer({ name: "netflix", version: "0.3.0" });
+var server = new McpServer({ name: "netflix", version: "0.4.0" });
 var json2 = (v) => ({ content: [{ type: "text", text: JSON.stringify(v, null, 2) }] });
 var fail = (e) => ({
   isError: true,
@@ -36851,18 +36852,29 @@ server.registerTool(
 server.registerTool(
   "browse_country",
   {
-    description: "Browse what is on Netflix in one country, 20 titles per page, optionally filtered by genre name (e.g. Comedy, Drama) or year. " + UNTRUSTED,
+    description: "Browse what is on Netflix in one country, 20 titles per page, optionally filtered by genre name (e.g. Comedy, Drama), year, or production country (origin_country, e.g. TW for Taiwanese productions). " + UNTRUSTED,
     inputSchema: {
       country,
       media_type: mediaType.default("movie"),
       genre: external_exports.string().default("").describe("Genre name; an unknown name returns the valid list"),
+      origin_country: external_exports.string().default("").describe("Optional ISO 3166-1 alpha-2 code: only titles produced in this country, which is independent of `country` (where it streams)"),
       year: external_exports.number().int().min(1888).optional().describe("Release year (movies) or first-air year (TV)"),
       sort_by: external_exports.enum(["popularity.desc", "vote_average.desc", "vote_count.desc"]).default("popularity.desc"),
       page: external_exports.number().int().min(1).max(500).default(1)
     },
     annotations: READ_ONLY
   },
-  ({ country: c, media_type, genre, year, sort_by, page }) => run(() => browseCountry({ country: normalizeCountry(c), type: media_type, genre, year, sortBy: sort_by, page }))
+  ({ country: c, media_type, genre, origin_country, year, sort_by, page }) => run(
+    () => browseCountry({
+      country: normalizeCountry(c),
+      type: media_type,
+      genre,
+      originCountry: origin_country ? normalizeCountry(origin_country) : "",
+      year,
+      sortBy: sort_by,
+      page
+    })
+  )
 );
 server.registerTool(
   "list_countries",

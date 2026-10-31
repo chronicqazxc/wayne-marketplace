@@ -8,7 +8,7 @@ Self-hosted Netflix availability MCP server (TypeScript on Node, stdio) built on
 |---|---|
 | `search_titles` | Search movies/TV by name; each result lists the countries carrying it on Netflix. Pass `country` to keep only titles on Netflix there |
 | `check_availability` | Every country where one title (`tmdb_id` + `media_type`) is on Netflix, with separate `standard` and `ads` flags |
-| `browse_country` | Browse a country's Netflix catalog (20 per page) by genre name, year and sort order |
+| `browse_country` | Browse a country's Netflix catalog (20 per page) by genre name, year, production country (`origin_country`, e.g. `TW` for Taiwanese productions) and sort order |
 | `list_countries` | Countries where TMDB lists Netflix, with an `ad_plan` flag for the cheaper ad-supported tier (`ad_plan_only` filters to those). No prices: TMDB does not provide them |
 
 Countries are ISO 3166-1 alpha-2 codes (`US`, `JP`, `GB`). Titles and overviews are third-party text and treated as untrusted input.

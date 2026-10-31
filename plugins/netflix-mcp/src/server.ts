@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { browseCountry, checkAvailability, listCountries, normalizeCountry, searchTitles } from "./tmdb.js";
 
-const server = new McpServer({ name: "netflix", version: "0.3.0" });
+const server = new McpServer({ name: "netflix", version: "0.4.0" });
 
 const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(v, null, 2) }] });
 const fail = (e: unknown) => ({
@@ -59,12 +59,16 @@ server.registerTool(
   "browse_country",
   {
     description:
-      "Browse what is on Netflix in one country, 20 titles per page, optionally filtered by genre name (e.g. Comedy, Drama) or year. " +
+      "Browse what is on Netflix in one country, 20 titles per page, optionally filtered by genre name (e.g. Comedy, Drama), year, or production country (origin_country, e.g. TW for Taiwanese productions). " +
       UNTRUSTED,
     inputSchema: {
       country,
       media_type: mediaType.default("movie"),
       genre: z.string().default("").describe("Genre name; an unknown name returns the valid list"),
+      origin_country: z
+        .string()
+        .default("")
+        .describe("Optional ISO 3166-1 alpha-2 code: only titles produced in this country, which is independent of `country` (where it streams)"),
       year: z.number().int().min(1888).optional().describe("Release year (movies) or first-air year (TV)"),
       sort_by: z
         .enum(["popularity.desc", "vote_average.desc", "vote_count.desc"])
@@ -73,8 +77,18 @@ server.registerTool(
     },
     annotations: READ_ONLY,
   },
-  ({ country: c, media_type, genre, year, sort_by, page }) =>
-    run(() => browseCountry({ country: normalizeCountry(c), type: media_type, genre, year, sortBy: sort_by, page })),
+  ({ country: c, media_type, genre, origin_country, year, sort_by, page }) =>
+    run(() =>
+      browseCountry({
+        country: normalizeCountry(c),
+        type: media_type,
+        genre,
+        originCountry: origin_country ? normalizeCountry(origin_country) : "",
+        year,
+        sortBy: sort_by,
+        page,
+      }),
+    ),
 );
 
 server.registerTool(
