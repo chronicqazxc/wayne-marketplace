@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Wayne's custom Claude Code plugin marketplace",
-    "version": "0.12.0"
+    "version": "0.13.0"
   },
   "plugins": [
     {
@@ -31,6 +31,12 @@
       "source": "./plugins/netflix-mcp",
       "description": "Self-hosted Netflix availability MCP server (Node, TMDB API): search titles, check which countries carry a title, browse a country's catalog. Read-only",
       "version": "0.4.0"
+    },
+    {
+      "name": "disney-mcp",
+      "source": "./plugins/disney-mcp",
+      "description": "Self-hosted Disney+ availability MCP server (Node, TMDB API): search titles, check which countries carry a title, browse a country's catalog. Read-only",
+      "version": "0.1.0"
     }
   ]
 }
