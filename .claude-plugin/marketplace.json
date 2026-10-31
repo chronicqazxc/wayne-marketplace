@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Wayne's custom Claude Code plugin marketplace",
-    "version": "0.15.0"
+    "version": "0.15.1"
   },
   "plugins": [
     {
@@ -48,7 +48,7 @@
       "name": "marketplace-adapter",
       "source": "./plugins/marketplace-adapter",
       "description": "Example: share a Claude Code marketplace with OpenCode, Codex and VS Code. Installs plugin skills and MCP servers into those tools via a local adapter page (/marketplace-adapter)",
-      "version": "3.1.0"
+      "version": "3.1.1"
     }
   ]
 }

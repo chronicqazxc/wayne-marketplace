@@ -67,6 +67,10 @@ export function createAdapter(cfg) {
       if (!fs.existsSync(manifest)) continue;
       let mcp;
       try { mcp = JSON.parse(fs.readFileSync(manifest, 'utf8')).mcpServers || {}; } catch { warnings.push(`! skip plugin ${name}: plugin.json is not valid JSON`); continue; }
+      const mcpFile = path.join(dir, '.mcp.json'); // Claude Code reads servers from here too; wrapped {"mcpServers":{}} or flat
+      if (fs.existsSync(mcpFile)) {
+        try { const j = JSON.parse(fs.readFileSync(mcpFile, 'utf8')); mcp = { ...(j.mcpServers || j), ...mcp }; } catch { warnings.push(`! skip .mcp.json of ${name}: not valid JSON`); }
+      }
       const sub = (v) => String(v).replaceAll('${CLAUDE_PLUGIN_ROOT}', dir);
       const servers = []; const skills = [];
       for (const [sname, def] of Object.entries(mcp)) {
