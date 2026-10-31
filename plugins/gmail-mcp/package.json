@@ -1,6 +1,6 @@
 {
   "name": "gmail-mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Self-hosted Gmail MCP server using the official Gmail API (read + draft only)",

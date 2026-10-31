@@ -1098,11 +1098,11 @@ var require_util = __commonJS({
       return false;
     }
     exports.schemaHasRules = schemaHasRules;
-    function schemaHasRulesButRef(schema, RULES) {
+    function schemaHasRulesButRef(schema, RULES2) {
       if (typeof schema == "boolean")
         return !schema;
       for (const key in schema)
-        if (key !== "$ref" && RULES.all[key])
+        if (key !== "$ref" && RULES2.all[key])
           return true;
       return false;
     }
@@ -2496,17 +2496,17 @@ var require_validate = __commonJS({
     }
     function schemaKeywords(it, types, typeErrors, errsCount) {
       const { gen, schema, data, allErrors, opts, self } = it;
-      const { RULES } = self;
-      if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1.schemaHasRulesButRef)(schema, RULES))) {
-        gen.block(() => keywordCode(it, "$ref", RULES.all.$ref.definition));
+      const { RULES: RULES2 } = self;
+      if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1.schemaHasRulesButRef)(schema, RULES2))) {
+        gen.block(() => keywordCode(it, "$ref", RULES2.all.$ref.definition));
         return;
       }
       if (!opts.jtd)
         checkStrictTypes(it, types);
       gen.block(() => {
-        for (const group of RULES.rules)
+        for (const group of RULES2.rules)
           groupKeywords(group);
-        groupKeywords(RULES.post);
+        groupKeywords(RULES2.post);
       });
       function groupKeywords(group) {
         if (!(0, applicability_1.shouldUseGroup)(schema, group))
@@ -4661,10 +4661,10 @@ var require_core = __commonJS({
       }
       // Remove keyword
       removeKeyword(keyword) {
-        const { RULES } = this;
-        delete RULES.keywords[keyword];
-        delete RULES.all[keyword];
-        for (const group of RULES.rules) {
+        const { RULES: RULES2 } = this;
+        delete RULES2.keywords[keyword];
+        delete RULES2.all[keyword];
+        for (const group of RULES2.rules) {
           const i = group.rules.findIndex((rule) => rule.keyword === keyword);
           if (i >= 0)
             group.rules.splice(i, 1);
@@ -4681,7 +4681,7 @@ var require_core = __commonJS({
       errorsText(errors = this.errors, { separator = ", ", dataVar = "data" } = {}) {
         if (!errors || errors.length === 0)
           return "No errors";
-        return errors.map((e) => `${dataVar}${e.instancePath} ${e.message}`).reduce((text, msg) => text + separator + msg);
+        return errors.map((e) => `${dataVar}${e.instancePath} ${e.message}`).reduce((text2, msg) => text2 + separator + msg);
       }
       $dataMetaSchema(metaSchema, keywordsJsonPointers) {
         const rules = this.RULES.all;
@@ -4832,9 +4832,9 @@ var require_core = __commonJS({
     }
     var KEYWORD_NAME = /^[a-z_$][a-z0-9_$:-]*$/i;
     function checkKeyword(keyword, def) {
-      const { RULES } = this;
+      const { RULES: RULES2 } = this;
       (0, util_1.eachItem)(keyword, (kwd) => {
-        if (RULES.keywords[kwd])
+        if (RULES2.keywords[kwd])
           throw new Error(`Keyword ${kwd} is already defined`);
         if (!KEYWORD_NAME.test(kwd))
           throw new Error(`Keyword ${kwd} has invalid name`);
@@ -4850,13 +4850,13 @@ var require_core = __commonJS({
       const post = definition === null || definition === void 0 ? void 0 : definition.post;
       if (dataType && post)
         throw new Error('keyword with "post" flag cannot have "type"');
-      const { RULES } = this;
-      let ruleGroup = post ? RULES.post : RULES.rules.find(({ type: t }) => t === dataType);
+      const { RULES: RULES2 } = this;
+      let ruleGroup = post ? RULES2.post : RULES2.rules.find(({ type: t }) => t === dataType);
       if (!ruleGroup) {
         ruleGroup = { type: dataType, rules: [] };
-        RULES.rules.push(ruleGroup);
+        RULES2.rules.push(ruleGroup);
       }
-      RULES.keywords[keyword] = true;
+      RULES2.keywords[keyword] = true;
       if (!definition)
         return;
       const rule = {
@@ -4871,7 +4871,7 @@ var require_core = __commonJS({
         addBeforeRule.call(this, ruleGroup, rule, definition.before);
       else
         ruleGroup.rules.push(rule);
-      RULES.all[keyword] = rule;
+      RULES2.all[keyword] = rule;
       (_a3 = definition.implements) === null || _a3 === void 0 ? void 0 : _a3.forEach((kwd) => this.addKeyword(kwd));
     }
     function addBeforeRule(ruleGroup, rule, before) {
@@ -6618,7 +6618,7 @@ var require_discriminator = __commonJS({
     var util_1 = require_util();
     var error62 = {
       message: ({ params: { discrError, tagName } }) => discrError === types_1.DiscrError.Tag ? `tag "${tagName}" must be string` : `value of tag "${tagName}" must be in oneOf`,
-      params: ({ params: { discrError, tag, tagName } }) => (0, codegen_1._)`{error: ${discrError}, tag: ${tagName}, tagValue: ${tag}}`
+      params: ({ params: { discrError, tag: tag2, tagName } }) => (0, codegen_1._)`{error: ${discrError}, tag: ${tagName}, tagValue: ${tag2}}`
     };
     var def = {
       keyword: "discriminator",
@@ -6639,18 +6639,18 @@ var require_discriminator = __commonJS({
         if (!oneOf)
           throw new Error("discriminator: requires oneOf keyword");
         const valid = gen.let("valid", false);
-        const tag = gen.const("tag", (0, codegen_1._)`${data}${(0, codegen_1.getProperty)(tagName)}`);
-        gen.if((0, codegen_1._)`typeof ${tag} == "string"`, () => validateMapping(), () => cxt.error(false, { discrError: types_1.DiscrError.Tag, tag, tagName }));
+        const tag2 = gen.const("tag", (0, codegen_1._)`${data}${(0, codegen_1.getProperty)(tagName)}`);
+        gen.if((0, codegen_1._)`typeof ${tag2} == "string"`, () => validateMapping(), () => cxt.error(false, { discrError: types_1.DiscrError.Tag, tag: tag2, tagName }));
         cxt.ok(valid);
         function validateMapping() {
           const mapping = getMapping();
           gen.if(false);
           for (const tagValue in mapping) {
-            gen.elseIf((0, codegen_1._)`${tag} === ${tagValue}`);
+            gen.elseIf((0, codegen_1._)`${tag2} === ${tagValue}`);
             gen.assign(valid, applyTagSchema(mapping[tagValue]));
           }
           gen.else();
-          cxt.error(false, { discrError: types_1.DiscrError.Mapping, tag, tagName });
+          cxt.error(false, { discrError: types_1.DiscrError.Mapping, tag: tag2, tagName });
           gen.endIf();
         }
         function applyTagSchema(schemaProp) {
@@ -20237,8 +20237,8 @@ function ko_default() {
 }
 
 // node_modules/zod/v4/locales/lt.js
-var capitalizeFirstCharacter = (text) => {
-  return text.charAt(0).toUpperCase() + text.slice(1);
+var capitalizeFirstCharacter = (text2) => {
+  return text2.charAt(0).toUpperCase() + text2.slice(1);
 };
 function getUnitTypeFromNumber(number4) {
   const abs = Math.abs(number4);
@@ -36654,6 +36654,147 @@ var StdioServerTransport = class {
   }
 };
 
+// ../../shared/pii-guard/index.ts
+function modeFromEnv(env, name) {
+  const v = env[name]?.trim().toLowerCase();
+  return v === "off" || v === "strict" ? v : "mask";
+}
+function luhn(digits) {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i]);
+    if (i % 2 === 1 && (d *= 2) > 9) d -= 9;
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+var TW_LETTER = "ABCDEFGHJKLMNPQRSTUVXYWZIO";
+function validTwId(id) {
+  const code = TW_LETTER.indexOf(id[0]) + 10;
+  const digits = [Math.floor(code / 10), code % 10, ...id.slice(1).split("").map(Number)];
+  const weights = [1, 9, 8, 7, 6, 5, 4, 3, 2, 1, 1];
+  return digits.reduce((s, d, i) => s + d * weights[i], 0) % 10 === 0;
+}
+function validIban(iban3) {
+  if (iban3.length < 15 || iban3.length > 34) return false;
+  const moved = iban3.slice(4) + iban3.slice(0, 4);
+  let rem = 0;
+  for (const ch of moved) {
+    const v = ch >= "A" ? ch.charCodeAt(0) - 55 : Number(ch);
+    rem = Number(String(rem) + String(v)) % 97;
+  }
+  return rem === 1;
+}
+function validSsn(s) {
+  const [area, group, serial] = s.split("-");
+  return area !== "000" && area !== "666" && area[0] !== "9" && group !== "00" && serial !== "0000";
+}
+var tag = (kind) => `[REDACTED:${kind}]`;
+var RULES = [
+  {
+    kind: "SECRET",
+    pattern: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g,
+    replace: () => tag("SECRET")
+  },
+  {
+    kind: "SECRET",
+    pattern: /\b(?:sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|eyJ[\w-]{8,}\.eyJ[\w-]{8,}\.[\w-]{8,})/g,
+    replace: () => tag("SECRET")
+  },
+  {
+    // "password is hunter2", "密碼：abc123": mask only the value, keep the label.
+    kind: "SECRET",
+    pattern: /((?:password|passcode|passwd|pwd|密碼)\s*(?:is|:|=|為|是|：)\s*)(\S+)/gi,
+    replace: (_m, label) => label + tag("SECRET")
+  },
+  {
+    kind: "IBAN",
+    pattern: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{2,4}){3,8}\b/g,
+    replace: (m) => {
+      const groups = m.split(" ");
+      for (let n = groups.length; n >= 3; n--) {
+        const candidate = groups.slice(0, n).join(" ");
+        if (validIban(candidate.replace(/ /g, ""))) return tag("IBAN") + (n < groups.length ? " " + groups.slice(n).join(" ") : "");
+      }
+      return null;
+    }
+  },
+  {
+    kind: "CARD",
+    pattern: /(?<![\w-])\d(?:[ -]?\d){12,18}(?![\w-])/g,
+    replace: (m) => luhn(m.replace(/\D/g, "")) ? tag("CARD") : null
+  },
+  {
+    kind: "SSN",
+    pattern: /(?<![\w-])\d{3}-\d{2}-\d{4}(?![\w-])/g,
+    replace: (m) => validSsn(m) ? tag("SSN") : null
+  },
+  {
+    kind: "TW_ID",
+    pattern: /\b[A-Z][12]\d{8}\b/g,
+    replace: (m) => validTwId(m) ? tag("TW_ID") : null
+  },
+  {
+    // One-time codes: mask the digits that follow "code", "OTP", "驗證碼", ...
+    kind: "OTP",
+    pattern: /((?:verification|security|login|one[- ]time|auth(?:entication)?)?\s*(?:code|otp|pin|驗證碼|認證碼|驗證代碼)[^\d\n]{0,25}?)(\d(?:[ -]?\d){3,7})(?![\w])/gi,
+    replace: (_m, label) => label + tag("OTP")
+  },
+  {
+    kind: "EMAIL",
+    strictOnly: true,
+    pattern: /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g,
+    replace: () => tag("EMAIL")
+  },
+  {
+    // +country-code numbers, parenthesised area codes, and Taiwan mobiles. Bare digit runs and
+    // ISO dates are left alone to avoid masking ids and timestamps.
+    kind: "PHONE",
+    strictOnly: true,
+    pattern: /(?<![\w.])(?:\+\d[\d\s().-]{7,17}\d|\(\d{2,4}\)[\s.-]?\d[\d\s.-]{5,12}\d|09\d{2}[ -]?\d{3}[ -]?\d{3})(?![\w])/g,
+    replace: (m) => {
+      const n = m.replace(/\D/g, "").length;
+      return n >= 9 && n <= 15 ? tag("PHONE") : null;
+    }
+  }
+];
+function redact(text2, mode = "mask") {
+  const counts = {};
+  if (mode === "off" || !text2) return { text: text2, counts };
+  let out = text2;
+  for (const rule of RULES) {
+    if (rule.strictOnly && mode !== "strict") continue;
+    out = out.replace(rule.pattern, (...args) => {
+      const groups = args.slice(0, -2).slice(1);
+      const replacement = rule.replace(args[0], ...groups);
+      if (replacement === null) return args[0];
+      counts[rule.kind] = (counts[rule.kind] ?? 0) + 1;
+      return replacement;
+    });
+  }
+  return { text: out, counts };
+}
+function detect(text2) {
+  return Object.keys(redact(text2, "mask").counts);
+}
+function redactDeep(value, opts) {
+  const counts = {};
+  const skip = new Set(opts.skipKeys ?? []);
+  const walk = (v) => {
+    if (typeof v === "string") {
+      const r = redact(v, opts.mode);
+      for (const [k, n] of Object.entries(r.counts)) counts[k] = (counts[k] ?? 0) + n;
+      return r.text;
+    }
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") {
+      return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, skip.has(k) ? x : walk(x)]));
+    }
+    return v;
+  };
+  return { value: walk(value), counts };
+}
+
 // src/format.ts
 var MAX_BODY_CHARS = 2e4;
 var NAMED_ENTITIES = {
@@ -36691,9 +36832,9 @@ function truncate(s, max) {
 var INVISIBLE = /[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\u2800\u3164\ufe0f\ufeff\uffa0]/g;
 var SNIPPET_MAX_CHARS = 120;
 function cleanSnippet(snippet) {
-  const text = unescapeHtml(snippet).replace(INVISIBLE, "").replace(/\s+/g, " ").trim();
-  const chars = Array.from(text);
-  return chars.length > SNIPPET_MAX_CHARS ? chars.slice(0, SNIPPET_MAX_CHARS).join("").trimEnd() + "\u2026" : text;
+  const text2 = unescapeHtml(snippet).replace(INVISIBLE, "").replace(/\s+/g, " ").trim();
+  const chars = Array.from(text2);
+  return chars.length > SNIPPET_MAX_CHARS ? chars.slice(0, SNIPPET_MAX_CHARS).join("").trimEnd() + "\u2026" : text2;
 }
 var decode3 = (data) => Buffer.from(data, "base64url").toString("utf8");
 function extractBody(payload) {
@@ -36706,14 +36847,14 @@ function extractBody(payload) {
     part.parts?.forEach(walk);
   };
   walk(payload);
-  let text;
+  let text2;
   if (plain.length) {
-    text = plain.join("\n");
+    text2 = plain.join("\n");
   } else {
-    text = rich.join("\n").replace(/<(script|style).*?<\/\1>/gis, "");
-    text = unescapeHtml(text.replace(/<[^>]+>/g, " ")).replace(/[ \t]+/g, " ");
+    text2 = rich.join("\n").replace(/<(script|style).*?<\/\1>/gis, "");
+    text2 = unescapeHtml(text2.replace(/<[^>]+>/g, " ")).replace(/[ \t]+/g, " ");
   }
-  return truncate(text, MAX_BODY_CHARS);
+  return truncate(text2, MAX_BODY_CHARS);
 }
 var header = (headers, name) => headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? "";
 function formatMessage(msg) {
@@ -36883,18 +37024,32 @@ async function createDraft(input2) {
 }
 
 // src/server.ts
-var server = new McpServer({ name: "gmail", version: "0.3.0" });
-var json2 = (v) => ({ content: [{ type: "text", text: JSON.stringify(v, null, 2) }] });
+var server = new McpServer({ name: "gmail", version: "0.4.0" });
+var PII_MODE = modeFromEnv(process.env, "GMAIL_PII_MODE");
+var PII_SKIP_KEYS = ["id", "thread_id", "message_id", "draft_id", "labels", "label", "from", "to", "cc", "date"];
+var text = (t) => ({ type: "text", text: t });
+var json2 = (v, counts = {}) => {
+  const kinds = Object.entries(counts).map(([k, n]) => `${k}x${n}`);
+  return {
+    content: [text(JSON.stringify(v, null, 2)), ...kinds.length ? [text(`PII guard masked: ${kinds.join(", ")}`)] : []]
+  };
+};
 var fail = (e) => ({
   isError: true,
-  content: [{ type: "text", text: e instanceof Error ? e.message : String(e) }]
+  content: [text(e instanceof Error ? e.message : String(e))]
 });
 var run = async (fn) => {
   try {
-    return json2(await fn());
+    const { value, counts } = redactDeep(await fn(), { mode: PII_MODE, skipKeys: PII_SKIP_KEYS });
+    return json2(value, counts);
   } catch (e) {
     return fail(e);
   }
+};
+var assertNoPii = (fields) => {
+  if (PII_MODE === "off") return;
+  const found = Object.entries(fields).flatMap(([name, v]) => detect(v).map((k) => `${name}: ${k}`));
+  if (found.length) throw new Error(`Draft blocked by PII guard (${found.join(", ")}). Remove it, or ask the user to set GMAIL_PII_MODE=off.`);
 };
 var maxResults = external_exports.number().int().min(1).default(10).describe("Max results (capped at 50)");
 var READ_ONLY = { readOnlyHint: true, openWorldHint: true };
@@ -36962,6 +37117,9 @@ server.registerTool(
     },
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }
   },
-  ({ to, subject, body, cc, bcc, thread_id }) => run(() => createDraft({ to, subject, body, cc, bcc, threadId: thread_id }))
+  ({ to, subject, body, cc, bcc, thread_id }) => run(async () => {
+    assertNoPii({ subject, body });
+    return createDraft({ to, subject, body, cc, bcc, threadId: thread_id });
+  })
 );
 await server.connect(new StdioServerTransport());

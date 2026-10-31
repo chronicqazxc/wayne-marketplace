@@ -1,0 +1,9 @@
+{
+  "name": "pii-guard",
+  "private": true,
+  "type": "module",
+  "description": "Shared PII masking module, inlined by esbuild into each consuming plugin's dist/. Not published.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

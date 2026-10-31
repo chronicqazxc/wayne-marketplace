@@ -14,6 +14,20 @@ Self-hosted, self-written Gmail MCP server (TypeScript on Node, stdio, no runtim
 | `list_drafts` | List drafts |
 | `create_draft` | Create a draft (optionally as a reply via `thread_id`). **Never sends** |
 
+## PII guard
+
+Email content is masked **before it reaches the model**. Cards (Luhn-checked), US SSN, Taiwan national ID, IBAN, API keys and tokens, private keys, password values and one-time codes become placeholders like `[REDACTED:CARD]`. Ids and the `from`/`to`/`cc`/`date` headers are left intact, and a `PII guard masked: CARDx1` line tells you when it fired. `create_draft` refuses to save a draft that contains any of these.
+
+Set `GMAIL_PII_MODE` in the environment that launches Claude Code:
+
+| Value | Effect |
+|---|---|
+| `mask` (default) | The detectors above |
+| `strict` | Also masks email addresses and phone numbers in bodies and subjects |
+| `off` | Disabled |
+
+It is best-effort pattern matching: it does not find names or free-text addresses, and it is not a compliance control.
+
 Scopes are only `gmail.readonly` and `gmail.compose`. There is deliberately no send, delete or label-modify tool, which limits the damage a prompt-injected email can do. Email bodies are untrusted input.
 
 ## Setup

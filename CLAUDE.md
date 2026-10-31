@@ -19,6 +19,8 @@ All plugins are self-hosted stdio MCP servers written in **TypeScript on Node**.
 
 **Delivery**: commit the bundled `dist/` so the installed plugin runs with only `node` and no `npm install` (`node_modules/` stays git-ignored). Run `npm run typecheck && npm run build` before every commit that touches `src/`; a stale `dist/` means users run old code.
 
+**Shared code**: code reused by several plugins lives in `shared/<module>/` (currently `shared/pii-guard/`, which masks PII in tool results). Plugins import it by relative path and esbuild inlines it into their own `dist/`, so nothing is resolved at runtime and each plugin stays independently installable. Keep shared modules pure (no imports, no I/O, no logging) and add the path to the plugin's `tsconfig.json` `include`. Test with `node --test` in the module folder. Changing a shared module means rebuilding and re-versioning every plugin that imports it.
+
 **Security and credentials**:
 - Tokens and client secrets live outside the repo in `~/.config/<name>/` (token mode 0600). Never commit them.
 - Config stays per plugin (`~/.config/<plugin-name>/`), not grouped under a marketplace folder, so each plugin remains independently installable. This was considered and deliberately rejected; do not propose moving it.

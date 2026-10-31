@@ -13,6 +13,14 @@ A deliberately self-written local stdio MCP server (TypeScript bundled with esbu
 - Tools that return email content (`get_thread`, `get_message`) must keep the "untrusted input" warning in their tool descriptions.
 - Never commit `client_secret.json` or `token.json`. Ship `src/`, the committed `dist/`, `package.json`/`package-lock.json` (plus docs and skills); `node_modules` is git-ignored.
 
+## PII guard
+
+- Source: `shared/pii-guard/` (shared with other plugins, inlined into `dist/` by esbuild). Wired in `src/server.ts`: `run()` masks every tool result via `redactDeep`, so new tools are covered automatically. `PII_SKIP_KEYS` keeps ids and `from/to/cc/date` exact; add a key there if a new tool returns an id-like field.
+- `GMAIL_PII_MODE`: `mask` (default) masks cards (Luhn), SSN, Taiwan ID, IBAN, API keys/tokens/private keys, password values and one-time codes; `strict` also masks emails and phone numbers in bodies; `off` disables. Unset or unknown means `mask`, never `off`.
+- `create_draft` is blocked when the subject or body contains a `mask`-mode PII kind. The error names the kind, not the value.
+- Never add a tool parameter that lets the model switch the guard off: a prompt-injected email could use it. Only the user's environment controls the mode.
+- It is best-effort regex: no names or free-text addresses. Do not describe it as a compliance control.
+
 ## Credentials and auth
 
 - Config dir: `~/.config/gmail-mcp` (override with `GMAIL_MCP_DIR`). Holds `client_secret.json` (user-supplied) and `token.json` (written by `auth`, mode 0600).
