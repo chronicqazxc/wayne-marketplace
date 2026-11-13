@@ -12,13 +12,13 @@
       "name": "linkedin-mcp",
       "source": "./plugins/linkedin-mcp",
       "description": "Self-hosted LinkedIn MCP server built on the official LinkedIn API (OAuth): profile, create and delete posts",
-      "version": "0.3.0"
+      "version": "0.3.1"
     },
     {
       "name": "wordpress-mcp",
       "source": "./plugins/wordpress-mcp",
       "description": "Self-hosted WordPress.com MCP server (REST API, OAuth bearer token): create, update, get, list and delete posts",
-      "version": "0.2.0"
+      "version": "0.2.1"
     },
     {
       "name": "gmail-mcp",
@@ -48,7 +48,7 @@
       "name": "marketplace-adapter",
       "source": "./plugins/marketplace-adapter",
       "description": "Example: share a Claude Code marketplace with OpenCode, Codex and VS Code. Installs plugin skills and MCP servers into those tools via a local adapter page (/marketplace-adapter)",
-      "version": "3.1.1"
+      "version": "3.1.2"
     },
     {
       "name": "lan-agent-hub",

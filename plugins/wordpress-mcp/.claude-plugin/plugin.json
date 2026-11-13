@@ -1,6 +1,6 @@
 {
   "name": "wordpress-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Self-hosted WordPress.com MCP server (REST API, OAuth bearer token): create, update, get, list and delete posts",
   "author": { "name": "Wayne" }
 }
