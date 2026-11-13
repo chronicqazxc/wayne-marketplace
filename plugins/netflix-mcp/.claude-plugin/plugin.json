@@ -1,6 +1,6 @@
 {
   "name": "netflix-mcp",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Self-hosted Netflix availability MCP server (Node, TMDB API): search titles, check which countries carry a title, browse a country's Netflix catalog. Read-only",
   "author": { "name": "Wayne" }
 }

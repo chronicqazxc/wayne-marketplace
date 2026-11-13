@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { browseCountry, checkAvailability, listCountries, normalizeCountry, searchTitles } from "./tmdb.js";
 
-const server = new McpServer({ name: "disney", version: "0.1.0" });
+const server = new McpServer({ name: "disney", version: "0.1.1" });
 
 const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(v, null, 2) }] });
 const fail = (e: unknown) => ({

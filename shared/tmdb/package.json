@@ -1,0 +1,9 @@
+{
+  "name": "tmdb",
+  "private": true,
+  "type": "module",
+  "description": "Shared TMDB watch-provider client logic, inlined by esbuild into each streaming-availability plugin's dist/. Not published.",
+  "scripts": {
+    "test": "node --test"
+  }
+}
