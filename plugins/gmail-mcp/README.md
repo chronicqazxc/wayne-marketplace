@@ -13,6 +13,15 @@ Self-hosted, self-written Gmail MCP server (TypeScript on Node, stdio, no runtim
 | `list_labels` | List labels |
 | `list_drafts` | List drafts |
 | `create_draft` | Create a draft (optionally as a reply via `thread_id`). **Never sends** |
+| `mark_read` / `mark_unread` | Toggle the unread state |
+| `archive` / `unarchive` | Remove from / return to the inbox |
+| `star` / `unstar` | Toggle the star |
+| `report_spam` / `not_spam` | Move to Spam (and out of the inbox) / back to the inbox |
+| `trash` / `untrash` | Move to Trash (recoverable for 30 days) / restore. **No permanent delete** |
+| `modify_labels` | Add or remove labels by id (`SPAM`, `TRASH`, `DRAFT`, `SENT` are refused) |
+| `create_label` / `delete_label` | Manage labels (deleting a label keeps the messages) |
+
+The mailbox-changing tools take explicit `ids` (thread ids by default, or message ids with `target: "message"`), at most 25 per call, and never a search query. `trash`, `report_spam` and `delete_label` are marked destructive so Claude Code asks before running them (unless you have allowlisted them: allowlist the safe ones individually rather than `mcp__plugin_gmail-mcp_gmail__*`).
 
 ## PII guard
 
@@ -28,14 +37,16 @@ Set `GMAIL_PII_MODE` in the environment that launches Claude Code:
 
 It is best-effort pattern matching: it does not find names or free-text addresses, and it is not a compliance control.
 
-Scopes are only `gmail.readonly` and `gmail.compose`. There is deliberately no send, delete or label-modify tool, which limits the damage a prompt-injected email can do. Email bodies are untrusted input.
+The only scope is `gmail.modify`. There is deliberately no send tool and no permanent delete, and write tools are limited to a few explicit ids per call, which limits the damage a prompt-injected email can do. Email bodies are untrusted input.
+
+**Upgrading from 0.4.x or earlier:** add the `gmail.modify` scope to the OAuth consent screen and sign in again (`node dist/auth.js`); until then write tools answer "Insufficient permissions".
 
 ## Setup
 
 Requires only `node` (the server is a committed, bundled `dist/`). Each user needs their own Google Cloud project:
 
 1. Create a GCP project and enable **Gmail API** (`gmail.googleapis.com`).
-2. Configure the OAuth consent screen: user type **External**, publishing status **Testing**. Add yourself as a **test user** and add the two scopes above. Do not click "Publish app".
+2. Configure the OAuth consent screen: user type **External**, publishing status **Testing**. Add yourself as a **test user** and add the `gmail.modify` scope (Gmail API). Do not click "Publish app".
 3. Create an OAuth client of type **Desktop app** (a Web client does not work) and save its JSON as `~/.config/gmail-mcp/client_secret.json`.
 4. Sign in once:
    ```shell

@@ -8,10 +8,7 @@ var override = process.env.GMAIL_MCP_DIR;
 var CONFIG_DIR = override ? override.replace(/^~(?=$|\/)/, homedir()) : join(homedir(), ".config", "gmail-mcp");
 var CLIENT_PATH = join(CONFIG_DIR, "client_secret.json");
 var TOKEN_PATH = join(CONFIG_DIR, "token.json");
-var SCOPES = [
-  "https://www.googleapis.com/auth/gmail.readonly",
-  "https://www.googleapis.com/auth/gmail.compose"
-];
+var SCOPES = ["https://www.googleapis.com/auth/gmail.modify"];
 var AUTH_HINT = `node ${fileURLToPath(new URL("./auth.js", import.meta.url))}`;
 
 // src/oauth.ts

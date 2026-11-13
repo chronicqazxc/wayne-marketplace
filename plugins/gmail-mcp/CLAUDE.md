@@ -8,8 +8,11 @@ A deliberately self-written local stdio MCP server (TypeScript bundled with esbu
 
 ## Security constraints (do not relax without asking)
 
-- Scopes are only `gmail.readonly` + `gmail.compose`. Keep `SCOPES` in sync with the OAuth consent screen.
-- No send, delete or label-modify tools. `create_draft` only creates drafts. This limits the damage a prompt-injected email can do.
+- Scope is only `gmail.modify` (read, drafts, label changes). Keep `SCOPES` in sync with the OAuth consent screen. Never add `gmail.send` or `https://mail.google.com/`: they would allow sending and permanent deletion.
+- No send tool and no permanent delete. `create_draft` only creates drafts; `trash` moves to Trash (recoverable for 30 days). This limits the damage a prompt-injected email can do.
+- Write tools (`mark_read`, `archive`, `trash`, `report_spam`, `modify_labels`, ...) take explicit ids only, capped at `MAX_IDS` (25) per call, never a search query, so a bulk action on "everything matching X" is impossible. Keep it that way.
+- `trash`, `report_spam` and `delete_label` carry `destructiveHint`; `modify_labels` refuses `SPAM`/`TRASH`/`DRAFT`/`SENT` so those can't bypass the dedicated tools. Every write tool description tells the model to act only on what the user asked for.
+- This write access was a deliberate decision by the user (previous versions were read + draft only). Adding anything more powerful still needs their approval.
 - Tools that return email content (`get_thread`, `get_message`) must keep the "untrusted input" warning in their tool descriptions.
 - Never commit `client_secret.json` or `token.json`. Ship `src/`, the committed `dist/`, `package.json`/`package-lock.json` (plus docs and skills); `node_modules` is git-ignored.
 
@@ -24,8 +27,9 @@ A deliberately self-written local stdio MCP server (TypeScript bundled with esbu
 ## Credentials and auth
 
 - Config dir: `~/.config/gmail-mcp` (override with `GMAIL_MCP_DIR`). Holds `client_secret.json` (user-supplied) and `token.json` (written by `auth`, mode 0600).
-- Auth is a one-time browser flow, run by the user, never by the MCP server or by Claude: `node dist/auth.js`. Auth errors ("Not authenticated", "Token expired") are the trigger phrases in the `gmail-reauth` skill description; keep them in sync if the messages in `src/token-store.ts` change.
+- Auth is a one-time browser flow, run by the user, never by the MCP server or by Claude: `node dist/auth.js`. Auth errors ("Not authenticated", "Token expired", "Insufficient permissions") are the trigger phrases in the `gmail-reauth` skill description; keep them in sync if the messages in `src/token-store.ts` change.
 - Google Cloud requirements: Gmail API enabled, External consent screen in **Testing** mode with the user as a test user, and a **Desktop app** OAuth client (a Web client does not work). Do not suggest "Publish app".
+- A token saved before 0.5.0 only has read + compose access: write tools fail with "Insufficient permissions" until the user reruns `auth.js` (and `gmail.modify` is added to the consent screen).
 - In Testing mode the refresh token expires every 7 days, so weekly reauth is expected, not a bug.
 
 ## Working on it
