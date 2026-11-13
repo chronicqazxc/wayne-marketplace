@@ -22,6 +22,22 @@ It reads MCP servers from `mcpServers` in `plugin.json`. The plugins here declar
 2. Register it in `.claude-plugin/marketplace.json` under `plugins` (`name`, `source`, `description`, `version`).
 3. Bump the marketplace `metadata.version`.
 
+### External plugins
+
+A plugin that lives in its own repo needs no folder here. Append an entry to `plugins` in `.claude-plugin/marketplace.json` and bump `metadata.version`:
+
+```json
+{
+  "name": "lan-agent-hub",
+  "description": "...",
+  "category": "development",
+  "homepage": "https://github.com/<owner>/<repo>",
+  "source": { "source": "url", "url": "https://github.com/<owner>/<repo>.git", "ref": "main", "sha": "<full commit sha>" }
+}
+```
+
+For a plugin in a subfolder of a bigger repo use `"source": "git-subdir"` with `url` and `path`. `sha` is optional; without it installs follow `ref`.
+
 ## Installation
 
 ```shell
