@@ -53,3 +53,13 @@ export function videoIdFrom(s: string): string {
   const m = s.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{11})/);
   return checkId("video id", m ? m[1] : s.trim());
 }
+
+/** Neutral upload file name: a plain name, no path parts. The real extension is kept or appended. */
+export function checkUploadFilename(name: string, realExt: string): string {
+  const n = name.trim();
+  if (!n || [...n].length > 120) throw new Error("upload_filename must be 1-120 characters");
+  if (!/^[\p{L}\p{N} ._()-]+$/u.test(n) || n.startsWith(".")) {
+    throw new Error("upload_filename may only contain letters, digits, spaces and . _ - ( ), with no path separators");
+  }
+  return n.toLowerCase().endsWith(realExt.toLowerCase()) ? n : `${n}${realExt}`;
+}

@@ -20,7 +20,12 @@ A self-written stdio MCP server (TypeScript, esbuild, raw `fetch` against YouTub
 
 Costs per call are hard-coded where each API function calls `call(..., { cost })` and surfaced by `run()` in `server.ts`. They are documented values (upload 1600, update/insert/delete 50, caption insert 400 / update 450, list 1; captions.list is 50). Update them if Google changes the table. `list_my_videos` deliberately uses the uploads playlist (1 unit), not `search.list` (100).
 
+`quota.ts` persists the running total per Pacific day to `quota.json` (estimate only, write failures are swallowed). New API cost sites must go through `spend()`, never `spent +=`. `upload_videos` reads it to stop before an upload that would not fit.
+
 ## Gotchas
+
+- Token writes: `saveToken` is serialized with a random temp name and refresh is single-flight (`getAccessToken`); parallel tool calls once raced on a pid-only temp name.
+- `login()` stores `refresh_token_issued` (metadata only) so `auth_status` can estimate the 7-day Testing-mode expiry.
 
 - `videos.update` (and playlists/captions update) delete any mutable field omitted: `updateVideo` reads then merges. Keep that when adding fields.
 - `publishAt` requires `privacyStatus: private`; `updateVideo` drops a stale `publishAt` when the video is made public.

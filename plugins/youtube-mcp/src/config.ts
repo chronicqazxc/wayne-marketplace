@@ -8,6 +8,7 @@ const override = process.env.YOUTUBE_MCP_DIR;
 export const CONFIG_DIR = override ? expand(override) : join(homedir(), ".config", "youtube-mcp");
 export const CLIENT_PATH = join(CONFIG_DIR, "client_secret.json");
 export const TOKEN_PATH = join(CONFIG_DIR, "token.json");
+export const QUOTA_PATH = join(CONFIG_DIR, "quota.json"); // running unit count per Pacific day (not a credential)
 
 // youtube.force-ssl = manage videos, playlists, captions, comments, thumbnails (it also covers uploads).
 // yt-analytics.readonly = channel analytics, no revenue data. Do NOT add yt-analytics-monetary.readonly

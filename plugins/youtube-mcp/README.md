@@ -6,11 +6,13 @@ Self-hosted, self-written YouTube MCP server (TypeScript on Node, stdio) using t
 
 | Tool | Description | Quota |
 |---|---|---|
-| `auth_status` | Connected channel, granted scopes, upload folder allowlist | 1 |
+| `auth_status` | Connected channel, granted scopes, upload folder allowlist, login issue/estimated expiry date, today's quota estimate | 1 |
+| `quota_status` | Persisted per-Pacific-day quota estimate: spent, remaining, uploads that still fit | 0 |
 | `list_categories` | Assignable category ids for a region | 1 |
-| `upload_video` | Upload a local video (resumable, 8 MiB chunks) with title, description, tags, category, privacy or scheduled `publish_at`, thumbnail and the **required** `contains_synthetic_media` AI-content flag. Defaults to private | 1,600 |
+| `upload_video` | Upload a local video (resumable, 8 MiB chunks) with title, description, tags, category, privacy or scheduled `publish_at`, thumbnail and the **required** `contains_synthetic_media` AI-content flag. Defaults to private. Optional `playlist_id`/`playlist_title` (adds the video right after upload) and `upload_filename` | 1,600 (+50 playlist) |
+| `upload_videos` | Batch of up to 10 uploads; validates everything first, stops when the daily quota estimate can't cover the next one or on the first failure | 1,600 each |
 | `update_video` | Edit metadata, visibility, schedule, AI flag. Only passed fields change | 51 |
-| `get_video` / `list_my_videos` | Read one video / page through your uploads (incl. private) with status and stats | 1-3 |
+| `get_video` / `list_my_videos` | Read one video (AI flag, rejection/processing status, stored file name, region/licensed-content info) / page through your uploads (incl. private, `privacy` filter, `all_pages`) | 1-3 |
 | `set_thumbnail` | Custom thumbnail (jpg/png, 2 MB) | 50 |
 | `delete_video` | Permanent delete; needs `confirm_video_id` | 51 |
 | `list_playlists` `create_playlist` `update_playlist` `delete_playlist` | Manage playlists (`delete_playlist` needs a confirm id) | 1-51 |
@@ -22,12 +24,14 @@ Self-hosted, self-written YouTube MCP server (TypeScript on Node, stdio) using t
 | `delete_comment` | Delete one comment | 50 |
 | `analytics_query` | YouTube Analytics reports (views, watch time, per video, per country, traffic sources...). No revenue | separate quota |
 
-Every result ends with the estimated quota used. The default daily Data API quota is **10,000 units** (resets midnight Pacific), so about **6 uploads a day**.
+Every result ends with the estimated quota used, and `quota_status` keeps a running total per Pacific day in `~/.config/youtube-mcp/quota.json` (counts only calls made through this plugin). The default daily Data API quota is **10,000 units** (resets midnight Pacific), so about **6 uploads a day**.
 
 ## Things to know
 
 - **Audio is not accepted.** YouTube needs a video container. For music, render audio + cover image to a video first (for example with `ffmpeg -loop 1 -i cover.png -i song.wav -c:v libx264 -tune stillimage -c:a aac -shortest out.mp4`).
 - **AI disclosure.** `contains_synthetic_media` has no default so the caller must decide. Set it `true` for realistic AI-generated or altered people, places, events or audio. Undisclosed realistic synthetic content risks removal or Partner Program action. Content ID can still falsely flag AI music; disputes are done in YouTube Studio.
+- **Claims.** Copyright / Content ID claims are not exposed by the YouTube Data API; `get_video` shows `rejection_reason`, `licensed_content` and `region_restriction`, everything else is in Studio.
+- **Upload file name.** `upload_filename` is sent as a `Slug` header, which YouTube may ignore; the result reports `stored_file_name` so you can see what stuck. Renaming the local file is the reliable way.
 - **Audit lock.** Videos uploaded through an API project that has not passed YouTube's API compliance audit are forced to private. The upload result warns when that happens; either set visibility in Studio or apply for the audit (same form raises quota).
 - **Thumbnails** need a phone-verified channel.
 - **Long uploads** block the tool call until finished. Interrupted network/5xx errors are resumed automatically.

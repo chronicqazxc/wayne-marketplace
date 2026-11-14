@@ -9,6 +9,7 @@ var override = process.env.YOUTUBE_MCP_DIR;
 var CONFIG_DIR = override ? expand(override) : join(homedir(), ".config", "youtube-mcp");
 var CLIENT_PATH = join(CONFIG_DIR, "client_secret.json");
 var TOKEN_PATH = join(CONFIG_DIR, "token.json");
+var QUOTA_PATH = join(CONFIG_DIR, "quota.json");
 var SCOPES = [
   "https://www.googleapis.com/auth/youtube.force-ssl",
   "https://www.googleapis.com/auth/yt-analytics.readonly"
@@ -17,18 +18,42 @@ var UPLOAD_DIRS = (process.env.YOUTUBE_UPLOAD_DIRS ?? "").split(delimiter).map((
 var AUTH_HINT = `node ${fileURLToPath(new URL("./auth.js", import.meta.url))}`;
 
 // src/oauth.ts
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes as randomBytes2 } from "node:crypto";
 import { spawn } from "node:child_process";
 import { readFile as readFile2 } from "node:fs/promises";
 import { createServer } from "node:http";
 
 // src/token-store.ts
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-async function saveToken(token) {
+import { randomBytes } from "node:crypto";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+var saveChain = Promise.resolve();
+function saveToken(token) {
+  const run = saveChain.then(() => writeTokenFile(token));
+  saveChain = run.catch(() => {
+  });
+  return run;
+}
+async function writeTokenFile(token) {
   await mkdir(CONFIG_DIR, { recursive: true, mode: 448 });
-  const tmp = `${TOKEN_PATH}.${process.pid}.tmp`;
-  await writeFile(tmp, JSON.stringify(token, null, 2), { mode: 384 });
-  await rename(tmp, TOKEN_PATH);
+  const tmp = `${TOKEN_PATH}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+  try {
+    await writeFile(tmp, JSON.stringify(token, null, 2), { mode: 384 });
+    await rename(tmp, TOKEN_PATH);
+  } catch (e) {
+    await unlink(tmp).catch(() => {
+    });
+    const onDisk = await loadToken().catch(() => void 0);
+    if (!onDisk?.token) throw e;
+  }
+}
+async function loadToken() {
+  let raw;
+  try {
+    raw = await readFile(TOKEN_PATH, "utf8");
+  } catch {
+    throw new Error(`Not authenticated. Run: ${AUTH_HINT} (${TOKEN_PATH} missing)`);
+  }
+  return JSON.parse(raw);
 }
 function formatExpiry(ms) {
   return new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -83,8 +108,8 @@ async function listenForCode(state) {
 }
 async function login() {
   const client = await loadClient();
-  const state = randomBytes(16).toString("hex");
-  const verifier = randomBytes(32).toString("base64url");
+  const state = randomBytes2(16).toString("hex");
+  const verifier = randomBytes2(32).toString("base64url");
   const { redirectUri, code: codePromise } = await listenForCode(state);
   const authUrl = new URL(client.auth_uri);
   authUrl.search = new URLSearchParams({
@@ -132,7 +157,9 @@ ${authUrl}
     scopes: SCOPES,
     universe_domain: "googleapis.com",
     account: "",
-    expiry: formatExpiry(Date.now() + t.expires_in * 1e3)
+    expiry: formatExpiry(Date.now() + t.expires_in * 1e3),
+    refresh_token_issued: formatExpiry(Date.now())
+    // metadata only, lets auth_status warn before a 7-day expiry
   });
 }
 

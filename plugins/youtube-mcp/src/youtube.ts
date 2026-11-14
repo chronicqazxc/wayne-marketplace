@@ -1,9 +1,10 @@
 import { open, readFile, realpath, stat } from "node:fs/promises";
 import { basename, extname, sep } from "node:path";
 import { AUTH_HINT, CONFIG_DIR, SCOPES, UPLOAD_DIRS } from "./config.js";
-import { getAccessToken, getStoredScopes } from "./token-store.js";
+import { DAILY_LIMIT, quotaStatus, recordSpend, UPLOAD_COST } from "./quota.js";
+import { getAccessToken, getStoredScopes, getTokenInfo } from "./token-store.js";
 import {
-  checkDate, checkDescription, checkId, checkPublishAt, checkTags, checkTitle, checkToken,
+  checkDate, checkDescription, checkId, checkPublishAt, checkTags, checkTitle, checkToken, checkUploadFilename,
 } from "./validate.js";
 
 const API = "https://www.googleapis.com/youtube/v3";
@@ -16,8 +17,13 @@ const CHUNK = 8 * 1024 * 1024; // must be a multiple of 256 KiB for resumable up
 // ---------- quota accounting ----------
 // The Data API grants 10,000 units/day by default (resets at midnight Pacific). Costs are the documented
 // per-method values; a failed call still costs at least 1, so cost is counted before the status check.
+// `spent` is the in-process total used for per-call reporting; recordSpend() also persists the Pacific-day total.
 let spent = 0;
 export const quotaSpent = () => spent;
+const spend = (units: number) => {
+  spent += units;
+  recordSpend(units);
+};
 
 // ---------- HTTP ----------
 type Params = Record<string, string | number | boolean | undefined>;
@@ -70,7 +76,7 @@ async function call<T>(path: string, o: CallOpts): Promise<T> {
     },
     body: o.body !== undefined ? JSON.stringify(o.body) : undefined,
   });
-  spent += o.cost;
+  spend(o.cost);
   const text = await res.text();
   if (!res.ok) throw apiError(res.status, path, text);
   return (text ? JSON.parse(text) : {}) as T; // deletes return an empty 204
@@ -124,7 +130,7 @@ async function checkLocalFile(p: string, types: Record<string, string>, maxBytes
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Starts a resumable session and returns the session URL (which itself authorises the PUTs). */
-async function startResumable(path: string, method: "POST" | "PUT", params: Params, metadata: unknown, file: LocalFile, cost: number): Promise<string> {
+async function startResumable(path: string, method: "POST" | "PUT", params: Params, metadata: unknown, file: LocalFile, cost: number, slug?: string): Promise<string> {
   const url = new URL(`${UPLOAD_API}${path}`);
   url.searchParams.set("uploadType", "resumable");
   for (const [k, v] of Object.entries(params)) if (v !== undefined) url.searchParams.set(k, String(v));
@@ -135,10 +141,11 @@ async function startResumable(path: string, method: "POST" | "PUT", params: Para
       "Content-Type": "application/json; charset=UTF-8",
       "X-Upload-Content-Length": String(file.size),
       "X-Upload-Content-Type": file.mime,
+      ...(slug ? { Slug: slug } : {}),
     },
     body: JSON.stringify(metadata),
   });
-  spent += cost;
+  spend(cost);
   if (!res.ok) throw apiError(res.status, path, await res.text());
   const location = res.headers.get("location");
   if (!location) throw new Error("YouTube did not return an upload session URL.");
@@ -207,7 +214,12 @@ interface Video {
     selfDeclaredMadeForKids?: boolean; containsSyntheticMedia?: boolean;
   };
   statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
-  contentDetails?: { duration?: string; definition?: string; caption?: string };
+  contentDetails?: {
+    duration?: string; definition?: string; caption?: string; licensedContent?: boolean;
+    regionRestriction?: { allowed?: string[]; blocked?: string[] };
+  };
+  fileDetails?: { fileName?: string };
+  processingDetails?: { processingStatus?: string; processingFailureReason?: string };
 }
 
 export const formatVideo = (v: Video) => ({
@@ -221,13 +233,14 @@ export const formatVideo = (v: Video) => ({
   published_at: v.snippet?.publishedAt,
   privacy: v.status?.privacyStatus,
   publish_at: v.status?.publishAt,
-  contains_synthetic_media: v.status?.containsSyntheticMedia,
+  // null = the API did not return the field (JSON would otherwise drop it silently).
+  contains_synthetic_media: v.status?.containsSyntheticMedia ?? null,
   made_for_kids: v.status?.madeForKids,
   license: v.status?.license,
   embeddable: v.status?.embeddable,
   upload_status: v.status?.uploadStatus,
   failure_reason: v.status?.failureReason,
-  rejection_reason: v.status?.rejectionReason,
+  rejection_reason: v.status?.rejectionReason ?? null,
   duration: v.contentDetails?.duration,
   has_captions: v.contentDetails?.caption,
   views: v.statistics?.viewCount,
@@ -236,6 +249,8 @@ export const formatVideo = (v: Video) => ({
 });
 
 const VIDEO_PARTS = "snippet,status,statistics,contentDetails";
+// Owner-only parts: only valid on your own videos, so getVideo falls back to VIDEO_PARTS if refused.
+const OWNER_PARTS = `${VIDEO_PARTS},fileDetails,processingDetails`;
 
 async function fetchVideos(ids: string[], parts = VIDEO_PARTS): Promise<Video[]> {
   const res = await call<{ items?: Video[] }>("/videos", { params: { part: parts, id: ids.join(","), maxResults: 50 }, cost: 1 });
@@ -266,8 +281,12 @@ export async function authStatus() {
     scopes_granted: granted,
     scopes_missing: SCOPES.filter((s) => !granted.includes(s)),
     upload_dirs: UPLOAD_DIRS.length ? UPLOAD_DIRS : "any folder",
+    ...(await getTokenInfo().catch(() => ({}))),
+    quota: await quotaStatus(),
   };
 }
+
+export { quotaStatus };
 
 export async function listCategories(regionCode: string) {
   const res = await call<{ items?: { id: string; snippet: { title: string; assignable: boolean } }[] }>("/videoCategories", {
@@ -292,10 +311,30 @@ export interface UploadInput {
   notifySubscribers: boolean;
   embeddable?: boolean;
   license?: "youtube" | "creativeCommon";
+  uploadFilename?: string;
+  playlistId?: string;
+  playlistTitle?: string;
+}
+
+/** Exact-title lookup (never creates). Paginates all playlists at 1 unit per 50. */
+async function resolvePlaylist(id?: string, title?: string): Promise<string | undefined> {
+  if (id && title) throw new Error("Pass playlist_id or playlist_title, not both.");
+  if (id) return checkId("playlist_id", id);
+  if (!title) return undefined;
+  const want = title.trim();
+  const all = await listPlaylists(50, undefined, true);
+  const hits = all.playlists.filter((p) => p.title?.trim() === want);
+  if (hits.length === 0) throw new Error(`No playlist titled "${want}". Create it first or pass playlist_id.`);
+  if (hits.length > 1) throw new Error(`${hits.length} playlists are titled "${want}" (${hits.map((h) => h.id).join(", ")}); pass playlist_id.`);
+  return hits[0].id;
 }
 
 export async function uploadVideo(a: UploadInput) {
+  const spentBefore = spent;
   const file = await checkLocalFile(a.filePath, VIDEO_TYPES, 256 * 1024 ** 3, "video");
+  const slug = a.uploadFilename ? checkUploadFilename(a.uploadFilename, extname(file.path)) : undefined;
+  // Resolve the playlist before spending 1,600 units on the upload, so a typo fails early.
+  const playlistId = await resolvePlaylist(a.playlistId, a.playlistTitle);
   const publishAt = a.publishAt ? checkPublishAt(a.publishAt) : undefined;
   if (publishAt && a.privacy !== "private") throw new Error("publish_at requires privacy 'private' (YouTube makes it public at that time).");
   const metadata = {
@@ -316,9 +355,20 @@ export async function uploadVideo(a: UploadInput) {
     },
   };
   const thumb = a.thumbnailPath ? await checkLocalFile(a.thumbnailPath, IMAGE_TYPES, 2 * 1024 ** 2, "thumbnail") : undefined;
-  const session = await startResumable("/videos", "POST", { part: "snippet,status", notifySubscribers: a.notifySubscribers }, metadata, file, 1600);
+  const session = await startResumable("/videos", "POST", { part: "snippet,status", notifySubscribers: a.notifySubscribers }, metadata, file, 1600, slug);
   const video = await putChunks<Video>(session, file);
   const warnings: string[] = [];
+  let playlist: { playlist_id: string; item_id: string; position?: number } | { playlist_id: string; error: string } | undefined;
+  if (playlistId) {
+    try {
+      const r = await addToPlaylist(playlistId, video.id);
+      playlist = { playlist_id: r.playlist_id, item_id: r.item_id, position: r.position };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      playlist = { playlist_id: playlistId, error: msg };
+      warnings.push(`Video uploaded but adding it to the playlist failed: ${msg}. Retry with add_to_playlist (video_id ${video.id}).`);
+    }
+  }
   if (video.status?.privacyStatus && video.status.privacyStatus !== a.privacy) {
     warnings.push(
       `Requested '${a.privacy}' but YouTube set '${video.status.privacyStatus}'. Uploads from API projects that have not passed YouTube's API compliance audit are locked to private; set visibility in YouTube Studio or get the project audited.`,
@@ -334,7 +384,86 @@ export async function uploadVideo(a: UploadInput) {
   if (video.status?.containsSyntheticMedia === false && a.containsSyntheticMedia) {
     warnings.push("The AI-content label did not stick; check it in YouTube Studio (Details > Altered content).");
   }
-  return { ...formatVideo(video), warnings };
+  let stored_file_name: string | undefined;
+  if (slug) {
+    // Read back what YouTube kept, so the caller can tell whether upload_filename took effect.
+    try {
+      const fd = (await call<{ items?: Video[] }>("/videos", { params: { part: "fileDetails", id: video.id }, cost: 1 })).items?.[0]?.fileDetails;
+      stored_file_name = fd?.fileName;
+      if (stored_file_name && stored_file_name !== slug) {
+        warnings.push(`upload_filename '${slug}' was requested but YouTube stored '${stored_file_name}'. The header is not honoured; rename the local file instead.`);
+      }
+    } catch {
+      warnings.push("Could not read back the stored file name (fileDetails may not be ready yet); check it with get_video (file_name).");
+    }
+  }
+  return {
+    ...formatVideo(video),
+    ...(playlist ? { playlist } : {}),
+    ...(slug ? { requested_upload_filename: slug, stored_file_name: stored_file_name ?? null } : {}),
+    quota_units_used: spent - spentBefore,
+    warnings,
+  };
+}
+
+const MAX_BATCH = 10;
+
+/**
+ * Sequential batch upload. Before each file it checks the persisted daily estimate and stops, skipping the
+ * rest, when the next upload (1,600 + 50 for a playlist add) would not fit. Also stops at the first error,
+ * because most failures (auth, quota, upload limit) would repeat for every following file.
+ */
+export async function uploadVideos(items: UploadInput[], defaults: { playlistId?: string; playlistTitle?: string }) {
+  if (items.length === 0 || items.length > MAX_BATCH) throw new Error(`Pass 1-${MAX_BATCH} items per batch.`);
+  // Validate every file before the first upload so a typo in item 5 does not surface after 4 uploads.
+  for (const [i, it] of items.entries()) {
+    try {
+      await checkLocalFile(it.filePath, VIDEO_TYPES, 256 * 1024 ** 3, "video");
+      checkTitle(it.title); checkDescription(it.description); checkTags(it.tags);
+      if (it.publishAt) checkPublishAt(it.publishAt);
+      if (it.thumbnailPath) await checkLocalFile(it.thumbnailPath, IMAGE_TYPES, 2 * 1024 ** 2, "thumbnail");
+    } catch (e) {
+      throw new Error(`Item ${i + 1} (${basename(it.filePath)}): ${e instanceof Error ? e.message : String(e)}. Nothing was uploaded.`);
+    }
+  }
+  const results: unknown[] = [];
+  let stoppedBecause: string | undefined;
+  for (const [i, it] of items.entries()) {
+    const withPlaylist = !!(it.playlistId ?? it.playlistTitle ?? defaults.playlistId ?? defaults.playlistTitle);
+    const need = UPLOAD_COST + (withPlaylist ? 50 : 0);
+    const q = await quotaStatus();
+    if (q.remaining_units < need) {
+      stoppedBecause = `quota estimate: ${q.remaining_units} units left of ${DAILY_LIMIT}, the next upload needs ~${need}`;
+    } else {
+      try {
+        const ownPlaylist = it.playlistId || it.playlistTitle;
+        results.push({
+          index: i + 1,
+          ok: true,
+          ...(await uploadVideo({
+            ...it,
+            playlistId: ownPlaylist ? it.playlistId : defaults.playlistId,
+            playlistTitle: ownPlaylist ? it.playlistTitle : defaults.playlistTitle,
+          })),
+        });
+        continue;
+      } catch (e) {
+        stoppedBecause = `item ${i + 1} failed: ${e instanceof Error ? e.message : String(e)}`;
+        results.push({ index: i + 1, ok: false, error: stoppedBecause });
+      }
+    }
+    for (let j = i + (results.length > i ? 1 : 0); j < items.length; j++) {
+      results.push({ index: j + 1, ok: false, skipped: true, file: basename(items[j].filePath) });
+    }
+    break;
+  }
+  return {
+    uploaded: results.filter((r) => (r as { ok: boolean }).ok).length,
+    of: items.length,
+    ...(stoppedBecause ? { stopped: stoppedBecause } : {}),
+    results,
+    quota: await quotaStatus(),
+  };
 }
 
 export interface UpdateInput {
@@ -386,11 +515,30 @@ export async function updateVideo(a: UpdateInput) {
 }
 
 export async function getVideo(videoId: string) {
-  return formatVideo(await fetchVideo(videoId));
+  let v: Video;
+  try {
+    v = await fetchVideo(videoId, OWNER_PARTS);
+  } catch {
+    v = await fetchVideo(videoId); // not your video, or the owner-only parts were refused
+  }
+  return {
+    ...formatVideo(v),
+    file_name: v.fileDetails?.fileName ?? null,
+    processing_status: v.processingDetails?.processingStatus ?? null,
+    processing_failure_reason: v.processingDetails?.processingFailureReason ?? null,
+    licensed_content: v.contentDetails?.licensedContent ?? null,
+    region_restriction: v.contentDetails?.regionRestriction ?? null,
+    notes: [
+      "contains_synthetic_media/rejection_reason are null when the API did not return them.",
+      "Copyright / Content ID claims and strikes are NOT exposed by the YouTube Data API v3 (only the Content ID partner API has them). The only signals here are rejection_reason (e.g. 'copyright'), licensed_content and region_restriction; check YouTube Studio > Content > Restrictions for claims.",
+    ],
+  };
 }
 
 let uploadsPlaylist: string | undefined;
-export async function listMyVideos(maxResults: number, pageToken?: string) {
+const MAX_PAGES = 40;
+
+export async function listMyVideos(o: { maxResults: number; pageToken?: string; privacy?: string; allPages?: boolean; maxPages?: number }) {
   if (!uploadsPlaylist) {
     const ch = await call<{ items?: { contentDetails?: { relatedPlaylists?: { uploads?: string } } }[] }>("/channels", {
       params: { part: "contentDetails", mine: true }, cost: 1,
@@ -398,13 +546,22 @@ export async function listMyVideos(maxResults: number, pageToken?: string) {
     uploadsPlaylist = ch.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
     if (!uploadsPlaylist) throw new Error("This Google account has no YouTube channel.");
   }
-  const page = await call<{ items?: { contentDetails?: { videoId?: string } }[]; nextPageToken?: string }>("/playlistItems", {
-    params: { part: "contentDetails", playlistId: uploadsPlaylist, maxResults: Math.min(maxResults, 50), pageToken }, cost: 1,
-  });
-  const ids = (page.items ?? []).map((i) => i.contentDetails?.videoId).filter((x): x is string => !!x);
-  const videos = ids.length ? await fetchVideos(ids) : [];
-  const byId = new Map(videos.map((v) => [v.id, v]));
-  return { videos: ids.map((id) => byId.get(id)).filter((v): v is Video => !!v).map(formatVideo), next_page_token: page.nextPageToken };
+  const limit = o.allPages ? Math.min(o.maxPages ?? 20, MAX_PAGES) : 1;
+  const out: ReturnType<typeof formatVideo>[] = [];
+  let token = o.pageToken;
+  let pages = 0;
+  do {
+    const page = await call<{ items?: { contentDetails?: { videoId?: string } }[]; nextPageToken?: string }>("/playlistItems", {
+      params: { part: "contentDetails", playlistId: uploadsPlaylist, maxResults: Math.min(o.maxResults, 50), pageToken: token }, cost: 1,
+    });
+    pages++;
+    const ids = (page.items ?? []).map((i) => i.contentDetails?.videoId).filter((x): x is string => !!x);
+    const videos = ids.length ? await fetchVideos(ids) : [];
+    const byId = new Map(videos.map((v) => [v.id, v]));
+    out.push(...ids.map((id) => byId.get(id)).filter((v): v is Video => !!v).filter((v) => !o.privacy || v.status?.privacyStatus === o.privacy).map(formatVideo));
+    token = page.nextPageToken;
+  } while (o.allPages && token && pages < limit);
+  return { videos: out, count: out.length, pages_fetched: pages, ...(o.privacy ? { filtered_by_privacy: o.privacy } : {}), next_page_token: token };
 }
 
 export async function deleteVideo(videoId: string) {
@@ -421,7 +578,7 @@ async function sendThumbnail(videoId: string, file: LocalFile) {
     headers: { Authorization: `Bearer ${await getAccessToken()}`, "Content-Type": file.mime },
     body: await readFile(file.path),
   });
-  spent += 50;
+  spend(50);
   if (!res.ok) throw apiError(res.status, "/thumbnails/set", await res.text());
 }
 
@@ -448,11 +605,19 @@ const formatPlaylist = (p: Playlist) => ({
   published_at: p.snippet?.publishedAt,
 });
 
-export async function listPlaylists(maxResults: number, pageToken?: string) {
-  const res = await call<{ items?: Playlist[]; nextPageToken?: string }>("/playlists", {
-    params: { part: "snippet,status,contentDetails", mine: true, maxResults: Math.min(maxResults, 50), pageToken }, cost: 1,
-  });
-  return { playlists: (res.items ?? []).map(formatPlaylist), next_page_token: res.nextPageToken };
+export async function listPlaylists(maxResults: number, pageToken?: string, allPages = false, privacy?: string, maxPages = 20) {
+  const out: ReturnType<typeof formatPlaylist>[] = [];
+  let token = pageToken;
+  let pages = 0;
+  do {
+    const res = await call<{ items?: Playlist[]; nextPageToken?: string }>("/playlists", {
+      params: { part: "snippet,status,contentDetails", mine: true, maxResults: Math.min(maxResults, 50), pageToken: token }, cost: 1,
+    });
+    pages++;
+    out.push(...(res.items ?? []).filter((p) => !privacy || p.status?.privacyStatus === privacy).map(formatPlaylist));
+    token = res.nextPageToken;
+  } while (allPages && token && pages < Math.min(maxPages, MAX_PAGES));
+  return { playlists: out, count: out.length, pages_fetched: pages, ...(privacy ? { filtered_by_privacy: privacy } : {}), next_page_token: token };
 }
 
 export async function createPlaylist(title: string, description: string, privacy: string) {
@@ -491,13 +656,13 @@ export async function deletePlaylist(id: string) {
 
 export async function listPlaylistItems(playlistId: string, maxResults: number, pageToken?: string) {
   const res = await call<{
-    items?: { id: string; snippet?: { title?: string; position?: number; resourceId?: { videoId?: string } } }[];
+    items?: { id: string; snippet?: { title?: string; position?: number; resourceId?: { videoId?: string } }; status?: { privacyStatus?: string } }[];
     nextPageToken?: string;
   }>("/playlistItems", {
-    params: { part: "snippet", playlistId: checkId("playlist_id", playlistId), maxResults: Math.min(maxResults, 50), pageToken }, cost: 1,
+    params: { part: "snippet,status", playlistId: checkId("playlist_id", playlistId), maxResults: Math.min(maxResults, 50), pageToken }, cost: 1,
   });
   return {
-    items: (res.items ?? []).map((i) => ({ item_id: i.id, video_id: i.snippet?.resourceId?.videoId, title: i.snippet?.title, position: i.snippet?.position })),
+    items: (res.items ?? []).map((i) => ({ item_id: i.id, video_id: i.snippet?.resourceId?.videoId, title: i.snippet?.title, position: i.snippet?.position, privacy: i.status?.privacyStatus })),
     next_page_token: res.nextPageToken,
   };
 }

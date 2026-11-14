@@ -6515,11 +6515,11 @@ var require_format = __commonJS({
           }
           function getFormat(fmtDef) {
             const code = fmtDef instanceof RegExp ? (0, codegen_1.regexpCode)(fmtDef) : opts.code.formats ? (0, codegen_1._)`${opts.code.formats}${(0, codegen_1.getProperty)(schema)}` : void 0;
-            const fmt = gen.scopeValue("formats", { key: schema, ref: fmtDef, code });
+            const fmt2 = gen.scopeValue("formats", { key: schema, ref: fmtDef, code });
             if (typeof fmtDef == "object" && !(fmtDef instanceof RegExp)) {
-              return [fmtDef.type || "string", fmtDef.validate, (0, codegen_1._)`${fmt}.validate`];
+              return [fmtDef.type || "string", fmtDef.validate, (0, codegen_1._)`${fmt2}.validate`];
             }
-            return ["string", fmtDef, fmt];
+            return ["string", fmtDef, fmt2];
           }
           function validCondition() {
             if (typeof formatDef == "object" && !(formatDef instanceof RegExp) && formatDef.async) {
@@ -7181,8 +7181,8 @@ var require_limit = __commonJS({
             ref: self.formats,
             code: opts.code.formats
           });
-          const fmt = gen.const("fmt", (0, codegen_1._)`${fmts}[${fCxt.schemaCode}]`);
-          cxt.fail$data((0, codegen_1.or)((0, codegen_1._)`typeof ${fmt} != "object"`, (0, codegen_1._)`${fmt} instanceof RegExp`, (0, codegen_1._)`typeof ${fmt}.compare != "function"`, compareCode(fmt)));
+          const fmt2 = gen.const("fmt", (0, codegen_1._)`${fmts}[${fCxt.schemaCode}]`);
+          cxt.fail$data((0, codegen_1.or)((0, codegen_1._)`typeof ${fmt2} != "object"`, (0, codegen_1._)`${fmt2} instanceof RegExp`, (0, codegen_1._)`typeof ${fmt2}.compare != "function"`, compareCode(fmt2)));
         }
         function validateFormat() {
           const format = fCxt.schema;
@@ -7192,15 +7192,15 @@ var require_limit = __commonJS({
           if (typeof fmtDef != "object" || fmtDef instanceof RegExp || typeof fmtDef.compare != "function") {
             throw new Error(`"${keyword}": format "${format}" does not define "compare" function`);
           }
-          const fmt = gen.scopeValue("formats", {
+          const fmt2 = gen.scopeValue("formats", {
             key: format,
             ref: fmtDef,
             code: opts.code.formats ? (0, codegen_1._)`${opts.code.formats}${(0, codegen_1.getProperty)(format)}` : void 0
           });
-          cxt.fail$data(compareCode(fmt));
+          cxt.fail$data(compareCode(fmt2));
         }
-        function compareCode(fmt) {
-          return (0, codegen_1._)`${fmt}.compare(${data}, ${schemaCode}) ${KWDs[keyword].fail} 0`;
+        function compareCode(fmt2) {
+          return (0, codegen_1._)`${fmt2}.compare(${data}, ${schemaCode}) ${KWDs[keyword].fail} 0`;
         }
       },
       dependencies: ["format"]
@@ -24291,45 +24291,45 @@ var PATTERN_IS_COMPLETE = /* @__PURE__ */ new Set([
   "xid"
 ]);
 function generateStringFormatCheck(doc, ctx, def, accessor, needsValue = true) {
-  const fmt = def.format;
-  if (fmt === "base64") {
+  const fmt2 = def.format;
+  if (fmt2 === "base64") {
     const validator = addConstant(ctx, isValidBase64);
     doc.write(`if (!${validator}(${accessor})) return INVALID;`);
     return accessor;
   }
-  if (fmt === "base64url") {
+  if (fmt2 === "base64url") {
     const validator = addConstant(ctx, isValidBase64URL);
     doc.write(`if (!${validator}(${accessor})) return INVALID;`);
     return accessor;
   }
-  if (fmt === "jwt") {
+  if (fmt2 === "jwt") {
     const validator = addConstant(ctx, isValidJWT2);
     const alg = addConstant(ctx, def.alg ?? null);
     doc.write(`if (!${validator}(${accessor}, ${alg})) return INVALID;`);
     return accessor;
   }
-  if (fmt === "ipv6") {
+  if (fmt2 === "ipv6") {
     const validator = addConstant(ctx, isValidIPv6);
     doc.write(`if (!${validator}(${accessor})) return INVALID;`);
     return accessor;
   }
-  if (fmt === "cidrv6") {
+  if (fmt2 === "cidrv6") {
     const validator = addConstant(ctx, isValidCIDRv6);
     doc.write(`if (!${validator}(${accessor})) return INVALID;`);
     return accessor;
   }
-  if (fmt === "credit_card") {
+  if (fmt2 === "credit_card") {
     const validator = addConstant(ctx, isValidCreditCard);
     doc.write(`if (!${validator}(${accessor})) return INVALID;`);
     return accessor;
   }
-  if (fmt === "iban") {
+  if (fmt2 === "iban") {
     const validator = addConstant(ctx, isValidIBAN);
     doc.write(`if (!${validator}(${accessor})) return INVALID;`);
     return accessor;
   }
   const formatDef = def;
-  if (fmt === "url" || fmt === "httpurl" || formatDef.normalize || formatDef.hostname !== void 0 || formatDef.protocol !== void 0) {
+  if (fmt2 === "url" || fmt2 === "httpurl" || formatDef.normalize || formatDef.hostname !== void 0 || formatDef.protocol !== void 0) {
     const parseConst = addConstant(ctx, validateURL);
     const defConst = addConstant(ctx, def);
     const trimVar = newVar(ctx);
@@ -24355,12 +24355,12 @@ function generateStringFormatCheck(doc, ctx, def, accessor, needsValue = true) {
   const customFn = def.fn;
   if (customFn) {
     if (isAsyncFunction(customFn))
-      throw new ZodCompileUnsupportedError(`async string format ${fmt}`);
+      throw new ZodCompileUnsupportedError(`async string format ${fmt2}`);
     const fnConst = addConstant(ctx, customFn);
     doc.write(`if (!${fnConst}(${accessor})) return INVALID;`);
     return accessor;
   }
-  if (PATTERN_IS_COMPLETE.has(fmt) && def.pattern) {
+  if (PATTERN_IS_COMPLETE.has(fmt2) && def.pattern) {
     const patternConst = addConstant(ctx, def.pattern);
     doc.write(`${patternConst}.lastIndex = 0;`);
     doc.write(`if (!${patternConst}.test(${accessor})) return INVALID;`);
@@ -36796,7 +36796,7 @@ function redactDeep(value, opts) {
 }
 
 // src/youtube.ts
-import { open as open2, readFile as readFile2, realpath, stat } from "node:fs/promises";
+import { open as open2, readFile as readFile3, realpath, stat } from "node:fs/promises";
 import { basename, extname, sep } from "node:path";
 
 // src/config.ts
@@ -36808,6 +36808,7 @@ var override = process.env.YOUTUBE_MCP_DIR;
 var CONFIG_DIR = override ? expand(override) : join(homedir(), ".config", "youtube-mcp");
 var CLIENT_PATH = join(CONFIG_DIR, "client_secret.json");
 var TOKEN_PATH = join(CONFIG_DIR, "token.json");
+var QUOTA_PATH = join(CONFIG_DIR, "quota.json");
 var SCOPES = [
   "https://www.googleapis.com/auth/youtube.force-ssl",
   "https://www.googleapis.com/auth/yt-analytics.readonly"
@@ -36815,19 +36816,100 @@ var SCOPES = [
 var UPLOAD_DIRS = (process.env.YOUTUBE_UPLOAD_DIRS ?? "").split(delimiter).map((d) => d.trim()).filter(Boolean).map((d) => resolve(expand(d)));
 var AUTH_HINT = `node ${fileURLToPath(new URL("./auth.js", import.meta.url))}`;
 
-// src/token-store.ts
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-var EXPIRY_SKEW_MS = 6e4;
-async function saveToken(token) {
+// src/quota.ts
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+var DAILY_LIMIT = Number(process.env.YOUTUBE_DAILY_QUOTA) > 0 ? Number(process.env.YOUTUBE_DAILY_QUOTA) : 1e4;
+var UPLOAD_COST = 1600;
+var fmt = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Los_Angeles",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23"
+});
+function pacificNow(now = Date.now()) {
+  const p = Object.fromEntries(fmt.formatToParts(now).map((x) => [x.type, x.value]));
+  const sinceMidnight = Number(p.hour) * 3600 + Number(p.minute) * 60 + Number(p.second);
+  return { date: `${p.year}-${p.month}-${p.day}`, hoursToReset: Math.round((86400 - sinceMidnight) / 3600 * 10) / 10 };
+}
+async function readFileState(today) {
+  try {
+    const q = JSON.parse(await readFile(QUOTA_PATH, "utf8"));
+    if (q.date === today && typeof q.spent === "number" && q.spent >= 0) return { date: today, spent: q.spent };
+  } catch {
+  }
+  return { date: today, spent: 0 };
+}
+async function writeState(q) {
   await mkdir(CONFIG_DIR, { recursive: true, mode: 448 });
-  const tmp = `${TOKEN_PATH}.${process.pid}.tmp`;
-  await writeFile(tmp, JSON.stringify(token, null, 2), { mode: 384 });
-  await rename(tmp, TOKEN_PATH);
+  const tmp = `${QUOTA_PATH}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+  try {
+    await writeFile(tmp, JSON.stringify(q), { mode: 384 });
+    await rename(tmp, QUOTA_PATH);
+  } catch (e) {
+    await unlink(tmp).catch(() => {
+    });
+    throw e;
+  }
+}
+var chain = Promise.resolve();
+function recordSpend(units) {
+  if (units <= 0) return;
+  chain = chain.then(async () => {
+    const q = await readFileState(pacificNow().date);
+    q.spent += units;
+    await writeState(q);
+  }).catch(() => {
+  });
+}
+async function quotaStatus() {
+  await chain;
+  const { date: date5, hoursToReset } = pacificNow();
+  const { spent: spent2 } = await readFileState(date5);
+  const remaining = Math.max(0, DAILY_LIMIT - spent2);
+  return {
+    pacific_date: date5,
+    spent_units: spent2,
+    daily_limit: DAILY_LIMIT,
+    remaining_units: remaining,
+    uploads_that_fit: Math.floor(remaining / UPLOAD_COST),
+    resets_in_hours: hoursToReset,
+    note: "Estimate from calls made through this plugin only; other tools sharing the Google Cloud project, or a failed call that cost more, are not counted. Check the Cloud console for the exact figure."
+  };
+}
+
+// src/token-store.ts
+import { randomBytes as randomBytes2 } from "node:crypto";
+import { mkdir as mkdir2, readFile as readFile2, rename as rename2, unlink as unlink2, writeFile as writeFile2 } from "node:fs/promises";
+var EXPIRY_SKEW_MS = 6e4;
+var saveChain = Promise.resolve();
+function saveToken(token) {
+  const run2 = saveChain.then(() => writeTokenFile(token));
+  saveChain = run2.catch(() => {
+  });
+  return run2;
+}
+async function writeTokenFile(token) {
+  await mkdir2(CONFIG_DIR, { recursive: true, mode: 448 });
+  const tmp = `${TOKEN_PATH}.${process.pid}.${randomBytes2(6).toString("hex")}.tmp`;
+  try {
+    await writeFile2(tmp, JSON.stringify(token, null, 2), { mode: 384 });
+    await rename2(tmp, TOKEN_PATH);
+  } catch (e) {
+    await unlink2(tmp).catch(() => {
+    });
+    const onDisk = await loadToken().catch(() => void 0);
+    if (!onDisk?.token) throw e;
+  }
 }
 async function loadToken() {
   let raw;
   try {
-    raw = await readFile(TOKEN_PATH, "utf8");
+    raw = await readFile2(TOKEN_PATH, "utf8");
   } catch {
     throw new Error(`Not authenticated. Run: ${AUTH_HINT} (${TOKEN_PATH} missing)`);
   }
@@ -36839,10 +36921,19 @@ function formatExpiry(ms) {
 async function getStoredScopes() {
   return (await loadToken()).scopes ?? [];
 }
+var isFresh = (t) => !!t.token && Date.now() < (t.expiry ? Date.parse(t.expiry) : Infinity) - EXPIRY_SKEW_MS;
+var refreshing;
 async function getAccessToken() {
   const t = await loadToken();
-  const expiresAt = t.expiry ? Date.parse(t.expiry) : Infinity;
-  if (t.token && Date.now() < expiresAt - EXPIRY_SKEW_MS) return t.token;
+  if (isFresh(t)) return t.token;
+  refreshing ??= refresh().finally(() => {
+    refreshing = void 0;
+  });
+  return refreshing;
+}
+async function refresh() {
+  const t = await loadToken();
+  if (isFresh(t)) return t.token;
   if (!t.refresh_token) throw new Error(`Token expired. Run: ${AUTH_HINT}`);
   const res = await fetch(t.token_uri, {
     method: "POST",
@@ -36868,6 +36959,16 @@ async function getAccessToken() {
   };
   await saveToken(updated);
   return updated.token;
+}
+async function getTokenInfo() {
+  const t = await loadToken();
+  const issued = typeof t.refresh_token_issued === "string" ? t.refresh_token_issued : void 0;
+  return {
+    access_token_expires_at: t.expiry,
+    refresh_token_issued_at: issued ?? "unknown (recorded at the next login)",
+    refresh_token_estimated_expiry: issued ? formatExpiry(Date.parse(issued) + 7 * 864e5) : "unknown (recorded at the next login)",
+    refresh_token_note: "The estimate assumes the Google OAuth app is in Testing mode (refresh tokens last 7 days). In Production mode they do not expire on a timer. Google can also revoke them at any time."
+  };
 }
 
 // src/validate.ts
@@ -36913,6 +37014,14 @@ function videoIdFrom(s) {
   const m = s.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{11})/);
   return checkId("video id", m ? m[1] : s.trim());
 }
+function checkUploadFilename(name, realExt) {
+  const n = name.trim();
+  if (!n || [...n].length > 120) throw new Error("upload_filename must be 1-120 characters");
+  if (!/^[\p{L}\p{N} ._()-]+$/u.test(n) || n.startsWith(".")) {
+    throw new Error("upload_filename may only contain letters, digits, spaces and . _ - ( ), with no path separators");
+  }
+  return n.toLowerCase().endsWith(realExt.toLowerCase()) ? n : `${n}${realExt}`;
+}
 
 // src/youtube.ts
 var API = "https://www.googleapis.com/youtube/v3";
@@ -36922,6 +37031,10 @@ var MAX_IDS = 25;
 var CHUNK = 8 * 1024 * 1024;
 var spent = 0;
 var quotaSpent = () => spent;
+var spend = (units) => {
+  spent += units;
+  recordSpend(units);
+};
 function apiError(status, where, body) {
   let reason = "";
   let message = body.slice(0, 500);
@@ -36960,7 +37073,7 @@ async function call(path, o) {
     },
     body: o.body !== void 0 ? JSON.stringify(o.body) : void 0
   });
-  spent += o.cost;
+  spend(o.cost);
   const text2 = await res.text();
   if (!res.ok) throw apiError(res.status, path, text2);
   return text2 ? JSON.parse(text2) : {};
@@ -37012,7 +37125,7 @@ async function checkLocalFile(p, types, maxBytes, kind) {
   return { path: real, size: s.size, mime };
 }
 var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-async function startResumable(path, method, params, metadata, file2, cost) {
+async function startResumable(path, method, params, metadata, file2, cost, slug) {
   const url2 = new URL(`${UPLOAD_API}${path}`);
   url2.searchParams.set("uploadType", "resumable");
   for (const [k, v] of Object.entries(params)) if (v !== void 0) url2.searchParams.set(k, String(v));
@@ -37022,11 +37135,12 @@ async function startResumable(path, method, params, metadata, file2, cost) {
       Authorization: `Bearer ${await getAccessToken()}`,
       "Content-Type": "application/json; charset=UTF-8",
       "X-Upload-Content-Length": String(file2.size),
-      "X-Upload-Content-Type": file2.mime
+      "X-Upload-Content-Type": file2.mime,
+      ...slug ? { Slug: slug } : {}
     },
     body: JSON.stringify(metadata)
   });
-  spent += cost;
+  spend(cost);
   if (!res.ok) throw apiError(res.status, path, await res.text());
   const location = res.headers.get("location");
   if (!location) throw new Error("YouTube did not return an upload session URL.");
@@ -37087,13 +37201,14 @@ var formatVideo = (v) => ({
   published_at: v.snippet?.publishedAt,
   privacy: v.status?.privacyStatus,
   publish_at: v.status?.publishAt,
-  contains_synthetic_media: v.status?.containsSyntheticMedia,
+  // null = the API did not return the field (JSON would otherwise drop it silently).
+  contains_synthetic_media: v.status?.containsSyntheticMedia ?? null,
   made_for_kids: v.status?.madeForKids,
   license: v.status?.license,
   embeddable: v.status?.embeddable,
   upload_status: v.status?.uploadStatus,
   failure_reason: v.status?.failureReason,
-  rejection_reason: v.status?.rejectionReason,
+  rejection_reason: v.status?.rejectionReason ?? null,
   duration: v.contentDetails?.duration,
   has_captions: v.contentDetails?.caption,
   views: v.statistics?.viewCount,
@@ -37101,6 +37216,7 @@ var formatVideo = (v) => ({
   comments: v.statistics?.commentCount
 });
 var VIDEO_PARTS = "snippet,status,statistics,contentDetails";
+var OWNER_PARTS = `${VIDEO_PARTS},fileDetails,processingDetails`;
 async function fetchVideos(ids, parts = VIDEO_PARTS) {
   const res = await call("/videos", { params: { part: parts, id: ids.join(","), maxResults: 50 }, cost: 1 });
   return res.items ?? [];
@@ -37124,7 +37240,9 @@ async function authStatus() {
     uploads_playlist_id: c.contentDetails?.relatedPlaylists?.uploads,
     scopes_granted: granted,
     scopes_missing: SCOPES.filter((s) => !granted.includes(s)),
-    upload_dirs: UPLOAD_DIRS.length ? UPLOAD_DIRS : "any folder"
+    upload_dirs: UPLOAD_DIRS.length ? UPLOAD_DIRS : "any folder",
+    ...await getTokenInfo().catch(() => ({})),
+    quota: await quotaStatus()
   };
 }
 async function listCategories(regionCode) {
@@ -37134,8 +37252,22 @@ async function listCategories(regionCode) {
   });
   return (res.items ?? []).filter((c) => c.snippet.assignable).map((c) => ({ id: c.id, title: c.snippet.title }));
 }
+async function resolvePlaylist(id, title) {
+  if (id && title) throw new Error("Pass playlist_id or playlist_title, not both.");
+  if (id) return checkId("playlist_id", id);
+  if (!title) return void 0;
+  const want = title.trim();
+  const all = await listPlaylists(50, void 0, true);
+  const hits = all.playlists.filter((p) => p.title?.trim() === want);
+  if (hits.length === 0) throw new Error(`No playlist titled "${want}". Create it first or pass playlist_id.`);
+  if (hits.length > 1) throw new Error(`${hits.length} playlists are titled "${want}" (${hits.map((h) => h.id).join(", ")}); pass playlist_id.`);
+  return hits[0].id;
+}
 async function uploadVideo(a) {
+  const spentBefore = spent;
   const file2 = await checkLocalFile(a.filePath, VIDEO_TYPES, 256 * 1024 ** 3, "video");
+  const slug = a.uploadFilename ? checkUploadFilename(a.uploadFilename, extname(file2.path)) : void 0;
+  const playlistId = await resolvePlaylist(a.playlistId, a.playlistTitle);
   const publishAt = a.publishAt ? checkPublishAt(a.publishAt) : void 0;
   if (publishAt && a.privacy !== "private") throw new Error("publish_at requires privacy 'private' (YouTube makes it public at that time).");
   const metadata = {
@@ -37156,9 +37288,20 @@ async function uploadVideo(a) {
     }
   };
   const thumb = a.thumbnailPath ? await checkLocalFile(a.thumbnailPath, IMAGE_TYPES, 2 * 1024 ** 2, "thumbnail") : void 0;
-  const session = await startResumable("/videos", "POST", { part: "snippet,status", notifySubscribers: a.notifySubscribers }, metadata, file2, 1600);
+  const session = await startResumable("/videos", "POST", { part: "snippet,status", notifySubscribers: a.notifySubscribers }, metadata, file2, 1600, slug);
   const video = await putChunks(session, file2);
   const warnings = [];
+  let playlist;
+  if (playlistId) {
+    try {
+      const r = await addToPlaylist(playlistId, video.id);
+      playlist = { playlist_id: r.playlist_id, item_id: r.item_id, position: r.position };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      playlist = { playlist_id: playlistId, error: msg };
+      warnings.push(`Video uploaded but adding it to the playlist failed: ${msg}. Retry with add_to_playlist (video_id ${video.id}).`);
+    }
+  }
   if (video.status?.privacyStatus && video.status.privacyStatus !== a.privacy) {
     warnings.push(
       `Requested '${a.privacy}' but YouTube set '${video.status.privacyStatus}'. Uploads from API projects that have not passed YouTube's API compliance audit are locked to private; set visibility in YouTube Studio or get the project audited.`
@@ -37174,7 +37317,79 @@ async function uploadVideo(a) {
   if (video.status?.containsSyntheticMedia === false && a.containsSyntheticMedia) {
     warnings.push("The AI-content label did not stick; check it in YouTube Studio (Details > Altered content).");
   }
-  return { ...formatVideo(video), warnings };
+  let stored_file_name;
+  if (slug) {
+    try {
+      const fd = (await call("/videos", { params: { part: "fileDetails", id: video.id }, cost: 1 })).items?.[0]?.fileDetails;
+      stored_file_name = fd?.fileName;
+      if (stored_file_name && stored_file_name !== slug) {
+        warnings.push(`upload_filename '${slug}' was requested but YouTube stored '${stored_file_name}'. The header is not honoured; rename the local file instead.`);
+      }
+    } catch {
+      warnings.push("Could not read back the stored file name (fileDetails may not be ready yet); check it with get_video (file_name).");
+    }
+  }
+  return {
+    ...formatVideo(video),
+    ...playlist ? { playlist } : {},
+    ...slug ? { requested_upload_filename: slug, stored_file_name: stored_file_name ?? null } : {},
+    quota_units_used: spent - spentBefore,
+    warnings
+  };
+}
+var MAX_BATCH = 10;
+async function uploadVideos(items, defaults) {
+  if (items.length === 0 || items.length > MAX_BATCH) throw new Error(`Pass 1-${MAX_BATCH} items per batch.`);
+  for (const [i, it] of items.entries()) {
+    try {
+      await checkLocalFile(it.filePath, VIDEO_TYPES, 256 * 1024 ** 3, "video");
+      checkTitle(it.title);
+      checkDescription(it.description);
+      checkTags(it.tags);
+      if (it.publishAt) checkPublishAt(it.publishAt);
+      if (it.thumbnailPath) await checkLocalFile(it.thumbnailPath, IMAGE_TYPES, 2 * 1024 ** 2, "thumbnail");
+    } catch (e) {
+      throw new Error(`Item ${i + 1} (${basename(it.filePath)}): ${e instanceof Error ? e.message : String(e)}. Nothing was uploaded.`);
+    }
+  }
+  const results = [];
+  let stoppedBecause;
+  for (const [i, it] of items.entries()) {
+    const withPlaylist = !!(it.playlistId ?? it.playlistTitle ?? defaults.playlistId ?? defaults.playlistTitle);
+    const need = UPLOAD_COST + (withPlaylist ? 50 : 0);
+    const q = await quotaStatus();
+    if (q.remaining_units < need) {
+      stoppedBecause = `quota estimate: ${q.remaining_units} units left of ${DAILY_LIMIT}, the next upload needs ~${need}`;
+    } else {
+      try {
+        const ownPlaylist = it.playlistId || it.playlistTitle;
+        results.push({
+          index: i + 1,
+          ok: true,
+          ...await uploadVideo({
+            ...it,
+            playlistId: ownPlaylist ? it.playlistId : defaults.playlistId,
+            playlistTitle: ownPlaylist ? it.playlistTitle : defaults.playlistTitle
+          })
+        });
+        continue;
+      } catch (e) {
+        stoppedBecause = `item ${i + 1} failed: ${e instanceof Error ? e.message : String(e)}`;
+        results.push({ index: i + 1, ok: false, error: stoppedBecause });
+      }
+    }
+    for (let j = i + (results.length > i ? 1 : 0); j < items.length; j++) {
+      results.push({ index: j + 1, ok: false, skipped: true, file: basename(items[j].filePath) });
+    }
+    break;
+  }
+  return {
+    uploaded: results.filter((r) => r.ok).length,
+    of: items.length,
+    ...stoppedBecause ? { stopped: stoppedBecause } : {},
+    results,
+    quota: await quotaStatus()
+  };
 }
 async function updateVideo(a) {
   const cur = await fetchVideo(a.videoId, "snippet,status");
@@ -37207,10 +37422,28 @@ async function updateVideo(a) {
   return formatVideo(out);
 }
 async function getVideo(videoId2) {
-  return formatVideo(await fetchVideo(videoId2));
+  let v;
+  try {
+    v = await fetchVideo(videoId2, OWNER_PARTS);
+  } catch {
+    v = await fetchVideo(videoId2);
+  }
+  return {
+    ...formatVideo(v),
+    file_name: v.fileDetails?.fileName ?? null,
+    processing_status: v.processingDetails?.processingStatus ?? null,
+    processing_failure_reason: v.processingDetails?.processingFailureReason ?? null,
+    licensed_content: v.contentDetails?.licensedContent ?? null,
+    region_restriction: v.contentDetails?.regionRestriction ?? null,
+    notes: [
+      "contains_synthetic_media/rejection_reason are null when the API did not return them.",
+      "Copyright / Content ID claims and strikes are NOT exposed by the YouTube Data API v3 (only the Content ID partner API has them). The only signals here are rejection_reason (e.g. 'copyright'), licensed_content and region_restriction; check YouTube Studio > Content > Restrictions for claims."
+    ]
+  };
 }
 var uploadsPlaylist;
-async function listMyVideos(maxResults, pageToken2) {
+var MAX_PAGES = 40;
+async function listMyVideos(o) {
   if (!uploadsPlaylist) {
     const ch = await call("/channels", {
       params: { part: "contentDetails", mine: true },
@@ -37219,14 +37452,23 @@ async function listMyVideos(maxResults, pageToken2) {
     uploadsPlaylist = ch.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
     if (!uploadsPlaylist) throw new Error("This Google account has no YouTube channel.");
   }
-  const page = await call("/playlistItems", {
-    params: { part: "contentDetails", playlistId: uploadsPlaylist, maxResults: Math.min(maxResults, 50), pageToken: pageToken2 },
-    cost: 1
-  });
-  const ids = (page.items ?? []).map((i) => i.contentDetails?.videoId).filter((x) => !!x);
-  const videos = ids.length ? await fetchVideos(ids) : [];
-  const byId = new Map(videos.map((v) => [v.id, v]));
-  return { videos: ids.map((id) => byId.get(id)).filter((v) => !!v).map(formatVideo), next_page_token: page.nextPageToken };
+  const limit = o.allPages ? Math.min(o.maxPages ?? 20, MAX_PAGES) : 1;
+  const out = [];
+  let token = o.pageToken;
+  let pages = 0;
+  do {
+    const page = await call("/playlistItems", {
+      params: { part: "contentDetails", playlistId: uploadsPlaylist, maxResults: Math.min(o.maxResults, 50), pageToken: token },
+      cost: 1
+    });
+    pages++;
+    const ids = (page.items ?? []).map((i) => i.contentDetails?.videoId).filter((x) => !!x);
+    const videos = ids.length ? await fetchVideos(ids) : [];
+    const byId = new Map(videos.map((v) => [v.id, v]));
+    out.push(...ids.map((id) => byId.get(id)).filter((v) => !!v).filter((v) => !o.privacy || v.status?.privacyStatus === o.privacy).map(formatVideo));
+    token = page.nextPageToken;
+  } while (o.allPages && token && pages < limit);
+  return { videos: out, count: out.length, pages_fetched: pages, ...o.privacy ? { filtered_by_privacy: o.privacy } : {}, next_page_token: token };
 }
 async function deleteVideo(videoId2) {
   const v = await fetchVideo(videoId2, "snippet");
@@ -37239,9 +37481,9 @@ async function sendThumbnail(videoId2, file2) {
   const res = await fetch(url2, {
     method: "POST",
     headers: { Authorization: `Bearer ${await getAccessToken()}`, "Content-Type": file2.mime },
-    body: await readFile2(file2.path)
+    body: await readFile3(file2.path)
   });
-  spent += 50;
+  spend(50);
   if (!res.ok) throw apiError(res.status, "/thumbnails/set", await res.text());
 }
 async function setThumbnail(videoId2, imagePath) {
@@ -37258,12 +37500,20 @@ var formatPlaylist = (p) => ({
   item_count: p.contentDetails?.itemCount,
   published_at: p.snippet?.publishedAt
 });
-async function listPlaylists(maxResults, pageToken2) {
-  const res = await call("/playlists", {
-    params: { part: "snippet,status,contentDetails", mine: true, maxResults: Math.min(maxResults, 50), pageToken: pageToken2 },
-    cost: 1
-  });
-  return { playlists: (res.items ?? []).map(formatPlaylist), next_page_token: res.nextPageToken };
+async function listPlaylists(maxResults, pageToken2, allPages2 = false, privacy2, maxPages2 = 20) {
+  const out = [];
+  let token = pageToken2;
+  let pages = 0;
+  do {
+    const res = await call("/playlists", {
+      params: { part: "snippet,status,contentDetails", mine: true, maxResults: Math.min(maxResults, 50), pageToken: token },
+      cost: 1
+    });
+    pages++;
+    out.push(...(res.items ?? []).filter((p) => !privacy2 || p.status?.privacyStatus === privacy2).map(formatPlaylist));
+    token = res.nextPageToken;
+  } while (allPages2 && token && pages < Math.min(maxPages2, MAX_PAGES));
+  return { playlists: out, count: out.length, pages_fetched: pages, ...privacy2 ? { filtered_by_privacy: privacy2 } : {}, next_page_token: token };
 }
 async function createPlaylist(title, description, privacy2) {
   const res = await call("/playlists", {
@@ -37302,11 +37552,11 @@ async function deletePlaylist(id) {
 }
 async function listPlaylistItems(playlistId, maxResults, pageToken2) {
   const res = await call("/playlistItems", {
-    params: { part: "snippet", playlistId: checkId("playlist_id", playlistId), maxResults: Math.min(maxResults, 50), pageToken: pageToken2 },
+    params: { part: "snippet,status", playlistId: checkId("playlist_id", playlistId), maxResults: Math.min(maxResults, 50), pageToken: pageToken2 },
     cost: 1
   });
   return {
-    items: (res.items ?? []).map((i) => ({ item_id: i.id, video_id: i.snippet?.resourceId?.videoId, title: i.snippet?.title, position: i.snippet?.position })),
+    items: (res.items ?? []).map((i) => ({ item_id: i.id, video_id: i.snippet?.resourceId?.videoId, title: i.snippet?.title, position: i.snippet?.position, privacy: i.status?.privacyStatus })),
     next_page_token: res.nextPageToken
   };
 }
@@ -37456,7 +37706,7 @@ async function analyticsQuery(a) {
 }
 
 // src/server.ts
-var server = new McpServer({ name: "youtube", version: "0.1.1" });
+var server = new McpServer({ name: "youtube", version: "0.2.0" });
 var PII_MODE = modeFromEnv(process.env, "YOUTUBE_PII_MODE");
 var PII_SKIP_KEYS = [
   "id",
@@ -37481,7 +37731,12 @@ var PII_SKIP_KEYS = [
   "scopes_missing",
   "columns",
   "handle",
-  "duration"
+  "duration",
+  "access_token_expires_at",
+  "refresh_token_issued_at",
+  "refresh_token_estimated_expiry",
+  "pacific_date",
+  "stopped"
 ];
 var text = (t) => ({ type: "text", text: t });
 var fail = (e) => ({ isError: true, content: [text(e instanceof Error ? e.message : String(e))] });
@@ -37520,13 +37775,23 @@ var videoId = external_exports.string().min(1).describe("Video id or a youtube.c
 var pageSize = external_exports.number().int().min(1).max(50).default(10);
 var pageToken = external_exports.string().optional().describe("next_page_token from the previous page");
 var privacy = external_exports.enum(["private", "unlisted", "public"]);
+var allPages = external_exports.boolean().default(false).describe("Fetch every page (up to max_pages) instead of one");
+var maxPages = external_exports.number().int().min(1).max(40).default(20);
 server.registerTool(
   "auth_status",
   {
-    description: "Show which YouTube channel is connected, granted scopes, and the upload folder allowlist. Use first to check login.",
+    description: "Show which YouTube channel is connected, granted scopes, the upload folder allowlist, when the saved login was issued / is estimated to expire, and today's estimated quota. Use first to check login.",
     annotations: READ_ONLY
   },
   () => run(authStatus)
+);
+server.registerTool(
+  "quota_status",
+  {
+    description: "Estimated YouTube Data API quota for the current Pacific day (persisted across restarts): units spent, remaining, and how many 1,600-unit uploads still fit. Costs nothing. Counts only calls made through this plugin.",
+    annotations: READ_ONLY
+  },
+  () => run(quotaStatus)
 );
 server.registerTool(
   "list_categories",
@@ -37537,46 +37802,70 @@ server.registerTool(
   },
   ({ region_code }) => run(() => listCategories(region_code.toUpperCase()))
 );
+var uploadFields = {
+  file_path: external_exports.string().min(1).describe("Absolute path of the video file"),
+  title: external_exports.string().min(1),
+  description: external_exports.string().default(""),
+  tags: external_exports.array(external_exports.string()).default([]),
+  category_id: external_exports.string().default("22").describe("See list_categories (22 = People & Blogs, 10 = Music)"),
+  privacy: privacy.default("private"),
+  publish_at: external_exports.string().optional().describe("ISO 8601 time to go public; requires privacy 'private'"),
+  contains_synthetic_media: external_exports.boolean().describe("Disclose realistic AI-generated/altered content. No default on purpose: decide explicitly."),
+  made_for_kids: external_exports.boolean().optional().describe("COPPA declaration; omit to use the channel default"),
+  default_language: external_exports.string().optional().describe("BCP-47 code of the title/description language, e.g. en"),
+  thumbnail_path: external_exports.string().optional().describe("Optional jpg/png under 2 MB (needs a verified channel)"),
+  notify_subscribers: external_exports.boolean().default(false),
+  embeddable: external_exports.boolean().optional(),
+  license: external_exports.enum(["youtube", "creativeCommon"]).optional(),
+  upload_filename: external_exports.string().optional().describe("Neutral file name to send instead of the local one (e.g. 'track-01.mp4'). Best effort: the result reports what YouTube actually stored (stored_file_name)."),
+  playlist_id: external_exports.string().optional().describe("Add the uploaded video to this playlist right away (+50 quota units)"),
+  playlist_title: external_exports.string().optional().describe("Same, by exact playlist title (+1 unit lookup, +50 add); fails before uploading if not found or ambiguous")
+};
+var toUpload = (a) => ({
+  filePath: a.file_path,
+  title: a.title,
+  description: a.description,
+  tags: a.tags,
+  categoryId: a.category_id,
+  privacy: a.privacy,
+  publishAt: a.publish_at,
+  containsSyntheticMedia: a.contains_synthetic_media,
+  madeForKids: a.made_for_kids,
+  defaultLanguage: a.default_language,
+  thumbnailPath: a.thumbnail_path,
+  notifySubscribers: a.notify_subscribers,
+  embeddable: a.embeddable,
+  license: a.license,
+  uploadFilename: a.upload_filename,
+  playlistId: a.playlist_id,
+  playlistTitle: a.playlist_title
+});
 server.registerTool(
   "upload_video",
   {
-    description: "Upload a video file from this machine (YouTube needs a video container such as mp4/mov/webm; audio-only files are not accepted: render audio + image to video first). contains_synthetic_media is REQUIRED: set true when the video has realistic AI-generated or altered people, places, events or audio (e.g. AI music or voices that could be mistaken for real); YouTube may remove or demonetise undisclosed realistic synthetic content. Defaults to private so nothing goes public unless the user asked. Costs ~1,600 quota units (about 6 uploads/day by default). Large files take a while." + ONLY_ASKED,
-    inputSchema: {
-      file_path: external_exports.string().min(1).describe("Absolute path of the video file"),
-      title: external_exports.string().min(1),
-      description: external_exports.string().default(""),
-      tags: external_exports.array(external_exports.string()).default([]),
-      category_id: external_exports.string().default("22").describe("See list_categories (22 = People & Blogs, 10 = Music)"),
-      privacy: privacy.default("private"),
-      publish_at: external_exports.string().optional().describe("ISO 8601 time to go public; requires privacy 'private'"),
-      contains_synthetic_media: external_exports.boolean().describe("Disclose realistic AI-generated/altered content. No default on purpose: decide explicitly."),
-      made_for_kids: external_exports.boolean().optional().describe("COPPA declaration; omit to use the channel default"),
-      default_language: external_exports.string().optional().describe("BCP-47 code of the title/description language, e.g. en"),
-      thumbnail_path: external_exports.string().optional().describe("Optional jpg/png under 2 MB (needs a verified channel)"),
-      notify_subscribers: external_exports.boolean().default(false),
-      embeddable: external_exports.boolean().optional(),
-      license: external_exports.enum(["youtube", "creativeCommon"]).optional()
-    },
+    description: "Upload a video file from this machine, optionally adding it to a playlist (playlist_id/playlist_title) (YouTube needs a video container such as mp4/mov/webm; audio-only files are not accepted: render audio + image to video first). contains_synthetic_media is REQUIRED: set true when the video has realistic AI-generated or altered people, places, events or audio (e.g. AI music or voices that could be mistaken for real); YouTube may remove or demonetise undisclosed realistic synthetic content. Defaults to private so nothing goes public unless the user asked. Costs ~1,600 quota units (about 6 uploads/day by default). Large files take a while." + ONLY_ASKED,
+    inputSchema: uploadFields,
     annotations: PUBLISHES
   },
   (a) => run(async () => {
     assertNoPii({ title: a.title, description: a.description, tags: a.tags });
-    return uploadVideo({
-      filePath: a.file_path,
-      title: a.title,
-      description: a.description,
-      tags: a.tags,
-      categoryId: a.category_id,
-      privacy: a.privacy,
-      publishAt: a.publish_at,
-      containsSyntheticMedia: a.contains_synthetic_media,
-      madeForKids: a.made_for_kids,
-      defaultLanguage: a.default_language,
-      thumbnailPath: a.thumbnail_path,
-      notifySubscribers: a.notify_subscribers,
-      embeddable: a.embeddable,
-      license: a.license
-    });
+    return uploadVideo(toUpload(a));
+  })
+);
+server.registerTool(
+  "upload_videos",
+  {
+    description: `Upload up to 10 videos in one call, one after another (~1,600 quota units each, +50 with a playlist). Each item takes the same fields as upload_video (contains_synthetic_media is required per item); items without their own playlist use the top-level playlist_id/playlist_title. All files and metadata are validated before the first upload. Stops, and skips the rest, when the persisted daily quota estimate cannot cover the next upload or when an upload fails; the result lists what was uploaded and skipped. Private by default.` + ONLY_ASKED,
+    inputSchema: {
+      items: external_exports.array(external_exports.object(uploadFields)).min(1).max(10),
+      playlist_id: external_exports.string().optional().describe("Default playlist for items that set none"),
+      playlist_title: external_exports.string().optional()
+    },
+    annotations: PUBLISHES
+  },
+  (a) => run(async () => {
+    for (const it of a.items) assertNoPii({ title: it.title, description: it.description, tags: it.tags });
+    return uploadVideos(a.items.map(toUpload), { playlistId: a.playlist_id, playlistTitle: a.playlist_title });
   })
 );
 server.registerTool(
@@ -37622,7 +37911,7 @@ server.registerTool(
 server.registerTool(
   "get_video",
   {
-    description: "Get one of your videos: metadata, visibility, AI-content flag, processing/rejection status and basic stats." + UNTRUSTED,
+    description: "Get one of your videos: metadata, visibility, AI-content flag (null if the API omits it), processing and rejection status, stored file name, licensed-content/region restrictions and basic stats. Content ID claims are not available from the API." + UNTRUSTED,
     inputSchema: { video_id: videoId },
     annotations: READ_ONLY
   },
@@ -37631,11 +37920,11 @@ server.registerTool(
 server.registerTool(
   "list_my_videos",
   {
-    description: "List your channel's videos, newest first, including private and unlisted ones, with status and stats. Page with next_page_token." + UNTRUSTED,
-    inputSchema: { max_results: pageSize, page_token: pageToken },
+    description: "List your channel's videos, newest first, including private and unlisted ones, with status and stats. Page with next_page_token, or set all_pages to fetch up to max_pages pages (~2 quota units per page). privacy filters the result." + UNTRUSTED,
+    inputSchema: { max_results: pageSize, page_token: pageToken, privacy: privacy.optional(), all_pages: allPages, max_pages: maxPages },
     annotations: READ_ONLY
   },
-  ({ max_results, page_token }) => run(() => listMyVideos(max_results, page_token))
+  (a) => run(() => listMyVideos({ maxResults: a.max_results, pageToken: a.page_token, privacy: a.privacy, allPages: a.all_pages, maxPages: a.max_pages }))
 );
 server.registerTool(
   "set_thumbnail",
@@ -37660,8 +37949,12 @@ server.registerTool(
 );
 server.registerTool(
   "list_playlists",
-  { description: "List your playlists." + UNTRUSTED, inputSchema: { max_results: pageSize, page_token: pageToken }, annotations: READ_ONLY },
-  ({ max_results, page_token }) => run(() => listPlaylists(max_results, page_token))
+  {
+    description: "List your playlists (1 quota unit per page). privacy filters the result; all_pages fetches every page." + UNTRUSTED,
+    inputSchema: { max_results: pageSize, page_token: pageToken, privacy: privacy.optional(), all_pages: allPages, max_pages: maxPages },
+    annotations: READ_ONLY
+  },
+  (a) => run(() => listPlaylists(a.max_results, a.page_token, a.all_pages, a.privacy, a.max_pages))
 );
 server.registerTool(
   "create_playlist",
@@ -37702,7 +37995,7 @@ server.registerTool(
 server.registerTool(
   "list_playlist_items",
   {
-    description: "List the videos in a playlist (returns item_id, needed to remove an entry)." + UNTRUSTED,
+    description: "List the videos in a playlist with each video's privacy (returns item_id, needed to remove an entry)." + UNTRUSTED,
     inputSchema: { playlist_id: external_exports.string().min(1), max_results: pageSize, page_token: pageToken },
     annotations: READ_ONLY
   },

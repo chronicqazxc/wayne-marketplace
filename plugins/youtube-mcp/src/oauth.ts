@@ -116,5 +116,6 @@ export async function login(): Promise<void> {
     universe_domain: "googleapis.com",
     account: "",
     expiry: formatExpiry(Date.now() + t.expires_in * 1000),
+    refresh_token_issued: formatExpiry(Date.now()), // metadata only, lets auth_status warn before a 7-day expiry
   });
 }

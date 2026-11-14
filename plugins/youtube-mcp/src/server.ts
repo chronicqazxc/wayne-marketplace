@@ -5,7 +5,7 @@ import { detect, modeFromEnv, redactDeep, type PiiCounts } from "../../../shared
 import * as yt from "./youtube.js";
 import { videoIdFrom } from "./validate.js";
 
-const server = new McpServer({ name: "youtube", version: "0.1.1" });
+const server = new McpServer({ name: "youtube", version: "0.2.0" });
 
 // PII guard: every tool result passes through run(), so tools added later are covered too.
 // Mode comes from YOUTUBE_PII_MODE (off | mask | strict); unset or unknown means mask.
@@ -15,6 +15,7 @@ const PII_SKIP_KEYS = [
   "id", "url", "video_id", "playlist_id", "item_id", "thread_id", "comment_id", "caption_id", "channel_id",
   "uploads_playlist_id", "next_page_token", "published_at", "publish_at", "last_updated", "deleted", "removed_item",
   "updated", "category_id", "scopes_granted", "scopes_missing", "columns", "handle", "duration",
+  "access_token_expires_at", "refresh_token_issued_at", "refresh_token_estimated_expiry", "pacific_date", "stopped",
 ];
 
 const text = (t: string) => ({ type: "text" as const, text: t });
@@ -58,15 +59,27 @@ const videoId = z.string().min(1).describe("Video id or a youtube.com / youtu.be
 const pageSize = z.number().int().min(1).max(50).default(10);
 const pageToken = z.string().optional().describe("next_page_token from the previous page");
 const privacy = z.enum(["private", "unlisted", "public"]);
+const allPages = z.boolean().default(false).describe("Fetch every page (up to max_pages) instead of one");
+const maxPages = z.number().int().min(1).max(40).default(20);
 
 // ---------- account ----------
 server.registerTool(
   "auth_status",
   {
-    description: "Show which YouTube channel is connected, granted scopes, and the upload folder allowlist. Use first to check login.",
+    description: "Show which YouTube channel is connected, granted scopes, the upload folder allowlist, when the saved login was issued / is estimated to expire, and today's estimated quota. Use first to check login.",
     annotations: READ_ONLY,
   },
   () => run(yt.authStatus),
+);
+
+server.registerTool(
+  "quota_status",
+  {
+    description:
+      "Estimated YouTube Data API quota for the current Pacific day (persisted across restarts): units spent, remaining, and how many 1,600-unit uploads still fit. Costs nothing. Counts only calls made through this plugin.",
+    annotations: READ_ONLY,
+  },
+  () => run(yt.quotaStatus),
 );
 
 server.registerTool(
@@ -80,41 +93,68 @@ server.registerTool(
 );
 
 // ---------- videos ----------
+const uploadFields = {
+  file_path: z.string().min(1).describe("Absolute path of the video file"),
+  title: z.string().min(1),
+  description: z.string().default(""),
+  tags: z.array(z.string()).default([]),
+  category_id: z.string().default("22").describe("See list_categories (22 = People & Blogs, 10 = Music)"),
+  privacy: privacy.default("private"),
+  publish_at: z.string().optional().describe("ISO 8601 time to go public; requires privacy 'private'"),
+  contains_synthetic_media: z.boolean().describe("Disclose realistic AI-generated/altered content. No default on purpose: decide explicitly."),
+  made_for_kids: z.boolean().optional().describe("COPPA declaration; omit to use the channel default"),
+  default_language: z.string().optional().describe("BCP-47 code of the title/description language, e.g. en"),
+  thumbnail_path: z.string().optional().describe("Optional jpg/png under 2 MB (needs a verified channel)"),
+  notify_subscribers: z.boolean().default(false),
+  embeddable: z.boolean().optional(),
+  license: z.enum(["youtube", "creativeCommon"]).optional(),
+  upload_filename: z.string().optional().describe("Neutral file name to send instead of the local one (e.g. 'track-01.mp4'). Best effort: the result reports what YouTube actually stored (stored_file_name)."),
+  playlist_id: z.string().optional().describe("Add the uploaded video to this playlist right away (+50 quota units)"),
+  playlist_title: z.string().optional().describe("Same, by exact playlist title (+1 unit lookup, +50 add); fails before uploading if not found or ambiguous"),
+};
+const toUpload = (a: z.infer<z.ZodObject<typeof uploadFields>>): yt.UploadInput => ({
+  filePath: a.file_path, title: a.title, description: a.description, tags: a.tags, categoryId: a.category_id,
+  privacy: a.privacy, publishAt: a.publish_at, containsSyntheticMedia: a.contains_synthetic_media,
+  madeForKids: a.made_for_kids, defaultLanguage: a.default_language, thumbnailPath: a.thumbnail_path,
+  notifySubscribers: a.notify_subscribers, embeddable: a.embeddable, license: a.license,
+  uploadFilename: a.upload_filename, playlistId: a.playlist_id, playlistTitle: a.playlist_title,
+});
+
 server.registerTool(
   "upload_video",
   {
     description:
-      "Upload a video file from this machine (YouTube needs a video container such as mp4/mov/webm; audio-only files are not accepted: render audio + image to video first). " +
+      "Upload a video file from this machine, optionally adding it to a playlist (playlist_id/playlist_title) (YouTube needs a video container such as mp4/mov/webm; audio-only files are not accepted: render audio + image to video first). " +
       "contains_synthetic_media is REQUIRED: set true when the video has realistic AI-generated or altered people, places, events or audio (e.g. AI music or voices that could be mistaken for real); " +
       "YouTube may remove or demonetise undisclosed realistic synthetic content. Defaults to private so nothing goes public unless the user asked. " +
       "Costs ~1,600 quota units (about 6 uploads/day by default). Large files take a while." + ONLY_ASKED,
-    inputSchema: {
-      file_path: z.string().min(1).describe("Absolute path of the video file"),
-      title: z.string().min(1),
-      description: z.string().default(""),
-      tags: z.array(z.string()).default([]),
-      category_id: z.string().default("22").describe("See list_categories (22 = People & Blogs, 10 = Music)"),
-      privacy: privacy.default("private"),
-      publish_at: z.string().optional().describe("ISO 8601 time to go public; requires privacy 'private'"),
-      contains_synthetic_media: z.boolean().describe("Disclose realistic AI-generated/altered content. No default on purpose: decide explicitly."),
-      made_for_kids: z.boolean().optional().describe("COPPA declaration; omit to use the channel default"),
-      default_language: z.string().optional().describe("BCP-47 code of the title/description language, e.g. en"),
-      thumbnail_path: z.string().optional().describe("Optional jpg/png under 2 MB (needs a verified channel)"),
-      notify_subscribers: z.boolean().default(false),
-      embeddable: z.boolean().optional(),
-      license: z.enum(["youtube", "creativeCommon"]).optional(),
-    },
+    inputSchema: uploadFields,
     annotations: PUBLISHES,
   },
   (a) =>
     run(async () => {
       assertNoPii({ title: a.title, description: a.description, tags: a.tags });
-      return yt.uploadVideo({
-        filePath: a.file_path, title: a.title, description: a.description, tags: a.tags, categoryId: a.category_id,
-        privacy: a.privacy, publishAt: a.publish_at, containsSyntheticMedia: a.contains_synthetic_media,
-        madeForKids: a.made_for_kids, defaultLanguage: a.default_language, thumbnailPath: a.thumbnail_path,
-        notifySubscribers: a.notify_subscribers, embeddable: a.embeddable, license: a.license,
-      });
+      return yt.uploadVideo(toUpload(a));
+    }),
+);
+
+server.registerTool(
+  "upload_videos",
+  {
+    description:
+      `Upload up to 10 videos in one call, one after another (~1,600 quota units each, +50 with a playlist). Each item takes the same fields as upload_video (contains_synthetic_media is required per item); items without their own playlist use the top-level playlist_id/playlist_title. ` +
+      "All files and metadata are validated before the first upload. Stops, and skips the rest, when the persisted daily quota estimate cannot cover the next upload or when an upload fails; the result lists what was uploaded and skipped. Private by default." + ONLY_ASKED,
+    inputSchema: {
+      items: z.array(z.object(uploadFields)).min(1).max(10),
+      playlist_id: z.string().optional().describe("Default playlist for items that set none"),
+      playlist_title: z.string().optional(),
+    },
+    annotations: PUBLISHES,
+  },
+  (a) =>
+    run(async () => {
+      for (const it of a.items) assertNoPii({ title: it.title, description: it.description, tags: it.tags });
+      return yt.uploadVideos(a.items.map(toUpload), { playlistId: a.playlist_id, playlistTitle: a.playlist_title });
     }),
 );
 
@@ -155,7 +195,7 @@ server.registerTool(
 server.registerTool(
   "get_video",
   {
-    description: "Get one of your videos: metadata, visibility, AI-content flag, processing/rejection status and basic stats." + UNTRUSTED,
+    description: "Get one of your videos: metadata, visibility, AI-content flag (null if the API omits it), processing and rejection status, stored file name, licensed-content/region restrictions and basic stats. Content ID claims are not available from the API." + UNTRUSTED,
     inputSchema: { video_id: videoId },
     annotations: READ_ONLY,
   },
@@ -165,11 +205,12 @@ server.registerTool(
 server.registerTool(
   "list_my_videos",
   {
-    description: "List your channel's videos, newest first, including private and unlisted ones, with status and stats. Page with next_page_token." + UNTRUSTED,
-    inputSchema: { max_results: pageSize, page_token: pageToken },
+    description:
+      "List your channel's videos, newest first, including private and unlisted ones, with status and stats. Page with next_page_token, or set all_pages to fetch up to max_pages pages (~2 quota units per page). privacy filters the result." + UNTRUSTED,
+    inputSchema: { max_results: pageSize, page_token: pageToken, privacy: privacy.optional(), all_pages: allPages, max_pages: maxPages },
     annotations: READ_ONLY,
   },
-  ({ max_results, page_token }) => run(() => yt.listMyVideos(max_results, page_token)),
+  (a) => run(() => yt.listMyVideos({ maxResults: a.max_results, pageToken: a.page_token, privacy: a.privacy, allPages: a.all_pages, maxPages: a.max_pages })),
 );
 
 server.registerTool(
@@ -200,8 +241,12 @@ server.registerTool(
 // ---------- playlists ----------
 server.registerTool(
   "list_playlists",
-  { description: "List your playlists." + UNTRUSTED, inputSchema: { max_results: pageSize, page_token: pageToken }, annotations: READ_ONLY },
-  ({ max_results, page_token }) => run(() => yt.listPlaylists(max_results, page_token)),
+  {
+    description: "List your playlists (1 quota unit per page). privacy filters the result; all_pages fetches every page." + UNTRUSTED,
+    inputSchema: { max_results: pageSize, page_token: pageToken, privacy: privacy.optional(), all_pages: allPages, max_pages: maxPages },
+    annotations: READ_ONLY,
+  },
+  (a) => run(() => yt.listPlaylists(a.max_results, a.page_token, a.all_pages, a.privacy, a.max_pages)),
 );
 
 server.registerTool(
@@ -249,7 +294,7 @@ server.registerTool(
 server.registerTool(
   "list_playlist_items",
   {
-    description: "List the videos in a playlist (returns item_id, needed to remove an entry)." + UNTRUSTED,
+    description: "List the videos in a playlist with each video's privacy (returns item_id, needed to remove an entry)." + UNTRUSTED,
     inputSchema: { playlist_id: z.string().min(1), max_results: pageSize, page_token: pageToken },
     annotations: READ_ONLY,
   },
