@@ -60,10 +60,10 @@
       "source": {
         "source": "url",
         "url": "https://github.com/chronicqazxc/lan-agent-hub.git",
-        "ref": "v0.6.0",
-        "sha": "96a5baade87e0717de8624672654944ab1a3ee3f"
+        "ref": "v0.6.1",
+        "sha": "c42da32418cb6387dfd267f49039974827c51808"
       },
-      "version": "0.6.0"
+      "version": "0.6.1"
     }
   ]
 }
