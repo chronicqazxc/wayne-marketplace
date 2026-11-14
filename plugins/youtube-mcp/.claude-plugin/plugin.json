@@ -1,0 +1,6 @@
+{
+  "name": "youtube-mcp",
+  "version": "0.1.1",
+  "description": "Self-hosted YouTube MCP server (Node, OAuth, official Data + Analytics APIs): upload and manage videos with the AI-content disclosure flag, thumbnails, playlists, captions, comments and analytics, with a PII guard",
+  "author": { "name": "Wayne" }
+}

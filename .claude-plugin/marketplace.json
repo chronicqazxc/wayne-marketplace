@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Wayne's custom Claude Code plugin marketplace",
-    "version": "0.18.5"
+    "version": "0.19.1"
   },
   "plugins": [
     {
@@ -25,6 +25,12 @@
       "source": "./plugins/gmail-mcp",
       "description": "Self-hosted Gmail MCP server (Node, OAuth): search and read threads, create drafts, mark read/unread, archive, star, label, report spam and trash, with a PII guard that masks cards, IDs, keys and codes. No send or permanent delete",
       "version": "0.5.0"
+    },
+    {
+      "name": "youtube-mcp",
+      "source": "./plugins/youtube-mcp",
+      "description": "Self-hosted YouTube MCP server (Node, OAuth, official Data + Analytics APIs): upload and manage videos with the AI-content disclosure flag, thumbnails, playlists, captions, comments and analytics, with a PII guard",
+      "version": "0.1.1"
     },
     {
       "name": "netflix-mcp",
